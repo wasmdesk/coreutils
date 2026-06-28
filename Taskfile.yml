@@ -1,0 +1,67 @@
+# Taskfile for wasmdesk/coreutils — https://taskfile.dev
+#
+#   task            # list the available tasks
+#   task build:all  # build all 15 native CLI binaries into bin/
+#   task test       # vet + race-test + 100% coverage gate
+#   task run -- ls -l README.md   # run any tool by argv
+#   task clean      # remove bin/
+#
+# Two shipping modes: (a) native CLI binaries via cmd/<tool>/main, and
+# (b) in-process builtins for the wasmbox terminal via multicall.Dispatch.
+# The Taskfile drives (a) + the shared coverage gate that covers both.
+
+version: "3"
+
+tasks:
+  default:
+    desc: List the available tasks
+    silent: true
+    cmds:
+      - task --list
+
+  build:all:
+    desc: Build every native CLI binary into bin/<tool>
+    env:
+      GOWORK: "off"
+      CGO_ENABLED: "0"
+    cmds:
+      - mkdir -p bin
+      - |
+        for d in cmd/*/main; do
+          tool=$(basename $(dirname "$d"))
+          go build -trimpath -o "bin/$tool" "./$d"
+        done
+      - 'echo "build:all: wrote $(ls bin | wc -l | tr -d " ") binaries"'
+
+  test:
+    desc: Vet + race-test + 100% statement coverage gate (excludes cmd/*/main wrappers)
+    env:
+      GOWORK: "off"
+    cmds:
+      - go vet ./...
+      - |
+        # The cmd/<tool>/main packages + cmd/multicall are thin CLI wrappers
+        # (~25 LoC each) composed of os.Getwd / os.Exit / new-fsx.OSFS. They
+        # are exercised via integration in build:all + by users running the
+        # binaries; the coverage gate covers the testable Run + dispatch
+        # surface (cmd/<tool> + multicall + pkg/...).
+        COVERPKG=$(go list ./... | grep -vE '/main$|/cmd/multicall$' | paste -sd, -)
+        PKGS=$(go list ./... | grep -vE '/main$|/cmd/multicall$')
+        go test -race -coverpkg="$COVERPKG" -coverprofile=cover.out $PKGS
+        go tool cover -func=cover.out | tail -1
+        cov=$(go tool cover -func=cover.out | tail -1 | awk '{print $3}' | tr -d '%')
+        echo "coverage: ${cov}%"
+        awk -v t="$cov" 'BEGIN { exit !(t+0 >= 100.0) }' || {
+          echo "::error::coverage ${cov}% < 100%"; exit 1; }
+
+  run:
+    desc: Run any tool via the multicall single-binary entry point. Example -- `task run -- ls -l`.
+    env:
+      GOWORK: "off"
+    cmds:
+      - go run ./cmd/multicall {{.CLI_ARGS}}
+
+  clean:
+    desc: Remove bin/ + cover.out
+    cmds:
+      - rm -rf bin cover.out
