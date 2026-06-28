@@ -9,25 +9,34 @@ import (
 	"fmt"
 	"strings"
 
+	onigmo "github.com/go-ruby-regexp/regexp"
 	"github.com/wasmdesk/coreutils/pkg/exit"
 	"github.com/wasmdesk/coreutils/pkg/fsx"
 )
 
-// Run searches for a SUBSTRING (NOT a regex in v0; see README) in each named
-// file and prints matching lines. Flags: -i (case-insensitive), -v (invert
-// match), -n (prefix line numbers). With multiple files, each match line is
-// prefixed with "FILE:". v0 deliberately ships substring-only matching
-// because go-ruby-regexp pulls in the full Onigmo engine; the next iteration
-// will swap in a regex backend behind a -E flag.
+// Run searches each named file for PATTERN and prints matching lines. By
+// default PATTERN is a literal substring (POSIX-fixed semantics); with -E the
+// pattern is compiled by the pure-Go go-ruby-regexp engine (Onigmo subset),
+// enabling alternation, anchors, classes, quantifiers, etc. Flags: -i
+// (case-insensitive), -v (invert match), -n (prefix line numbers), -E
+// (extended-regex mode). With multiple files, each match line is prefixed
+// with "FILE:".
+//
+// Under -E, -i is honoured by prepending the inline (?i) flag to the user's
+// pattern -- this hands case-folding to the regex engine and so works
+// correctly for non-ASCII letters (é/É, σ/Σ, ...) that a naive ToLower would
+// botch. Under the substring path (-E absent), -i keeps its pre-existing
+// ToLower-both-sides behaviour for backward compatibility.
 //
 // Exit codes: Ok (0) if any match found, Fail (1) otherwise, Usage (2) on
-// argument errors. Matches `grep` shell-script convention.
+// argument errors -- including an invalid -E pattern. Matches the `grep`
+// shell-script convention.
 func Run(env *fsx.Env) int {
 	args := env.Args
 	if len(args) > 0 {
 		args = args[1:]
 	}
-	ignoreCase, invert, withNumber := false, false, false
+	ignoreCase, invert, withNumber, regex := false, false, false, false
 	var pos []string
 	for _, a := range args {
 		switch a {
@@ -37,18 +46,24 @@ func Run(env *fsx.Env) int {
 			invert = true
 		case "-n":
 			withNumber = true
+		case "-E":
+			regex = true
 		default:
 			pos = append(pos, a)
 		}
 	}
 	if len(pos) < 2 {
-		fmt.Fprintln(env.Stderr, "grep: usage: grep [-i] [-v] [-n] PATTERN FILE...")
+		fmt.Fprintln(env.Stderr, "grep: usage: grep [-E] [-i] [-v] [-n] PATTERN FILE...")
 		return exit.Usage
 	}
 	pattern, files := pos[0], pos[1:]
-	if ignoreCase {
-		pattern = strings.ToLower(pattern)
+
+	matcher, err := buildMatcher(pattern, regex, ignoreCase)
+	if err != nil {
+		fmt.Fprintf(env.Stderr, "grep: %s\n", err.Error())
+		return exit.Usage
 	}
+
 	rc := exit.Fail
 	for _, p := range files {
 		abs := fsx.Resolve(env.Cwd, p)
@@ -71,11 +86,7 @@ func Run(env *fsx.Env) int {
 				line = text[:i]
 				text = text[i+1:]
 			}
-			hay := line
-			if ignoreCase {
-				hay = strings.ToLower(hay)
-			}
-			match := strings.Contains(hay, pattern)
+			match := matcher(line)
 			if invert {
 				match = !match
 			}
@@ -87,6 +98,34 @@ func Run(env *fsx.Env) int {
 		}
 	}
 	return rc
+}
+
+// buildMatcher returns a per-line predicate plus a compile-time error (only
+// non-nil when -E is set and the pattern is malformed). Split out so the
+// hot loop in Run does not branch on (regex, ignoreCase) for every line.
+func buildMatcher(pattern string, regex, ignoreCase bool) (func(string) bool, error) {
+	if regex {
+		src := pattern
+		if ignoreCase {
+			// (?i) is Onigmo's inline case-insensitive flag and handles full
+			// Unicode case-folding -- the correct vehicle for -i under -E.
+			src = "(?i)" + src
+		}
+		re, err := onigmo.Compile(src)
+		if err != nil {
+			return nil, fmt.Errorf("invalid regex %q: %s", pattern, err.Error())
+		}
+		return re.MatchString, nil
+	}
+	if ignoreCase {
+		lowered := strings.ToLower(pattern)
+		return func(line string) bool {
+			return strings.Contains(strings.ToLower(line), lowered)
+		}, nil
+	}
+	return func(line string) bool {
+		return strings.Contains(line, pattern)
+	}, nil
 }
 
 func printMatch(w writer, line string, n int, path string, withPath, withNumber bool) {

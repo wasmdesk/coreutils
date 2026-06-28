@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue)](LICENSE)
 [![Go](https://img.shields.io/badge/go-1.26.4%2B-00ADD8)](https://go.dev/dl/)
-[![Status](https://img.shields.io/badge/status-v0%20%C2%B7%2015%20tools-1a7f37)](#tools)
+[![Status](https://img.shields.io/badge/status-v0.2%20%C2%B7%2015%20tools-1a7f37)](#tools)
 
 **A pure-Go (no cgo) GNU-coreutils-style command suite** that ships in two
 modes: native CLI binaries (`go install ./cmd/<tool>`) and in-process
@@ -49,7 +49,7 @@ redesign.
 | `head` | `-n N` (default 10)                 |
 | `tail` | `-n N` (default 10)                 |
 | `wc`   | `-l` / `-w` / `-c`                  |
-| `grep` | `-i`, `-v`, `-n` (substring match — see "Limitations") |
+| `grep` | `-i`, `-v`, `-n`, `-E` (regex via go-ruby-regexp — see "Limitations") |
 | `find` | `-name GLOB` (shell-style glob)     |
 
 ## Architecture
@@ -80,9 +80,15 @@ through the same path. See [wasmbox](https://github.com/wasmdesk/wasmbox)
 ## Limitations (v0)
 
 - `touch` does not update mtime (the wasmbox VFS has no mtime field).
-- `grep` is **substring** only, not regex. The next iteration will hook the
-  [go-ruby-regexp](https://github.com/go-ruby-regexp/regexp) engine behind
-  a `-E` flag.
+- `grep` defaults to **substring** match (POSIX-fixed). Pass `-E` to switch
+  to the pure-Go [go-ruby-regexp](https://github.com/go-ruby-regexp/regexp)
+  engine (Onigmo subset: alternation, classes, anchors, quantifiers,
+  `(?i)` etc.). Under `-E`, `-i` is wired to the engine's case-folding
+  (Unicode-correct), and a malformed pattern exits 2.
+- `coreutils` depends on `go-ruby-regexp` via a `replace` directive that
+  points at a sibling checkout (`../../go-ruby-regexp/regexp`) for the
+  bring-up era. When go-ruby-regexp cuts a tagged release, drop the
+  replace and bump the require.
 - `echo` has no `-e` (escape-interpret) flag.
 - `ls -a` is accepted but a no-op — the wasmbox VFS has no hidden-dot
   convention.

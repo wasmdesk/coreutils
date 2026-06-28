@@ -137,6 +137,116 @@ func TestGrepMissingFile(t *testing.T) {
 	}
 }
 
+// -E activates the go-ruby-regexp engine. The cases below cover the regex
+// feature surface a user would reach for at a shell (alternation, char
+// class, anchors, quantifiers) plus the three flag combinations the rest of
+// grep already supports.
+func TestGrepRegexCases(t *testing.T) {
+	cases := []struct {
+		name string
+		args []string
+		body string
+		want string
+		rc   int
+	}{
+		{
+			name: "alternation",
+			args: []string{"-E", "a|b", "/f"},
+			body: "alpha\nbeta\ngamma\n",
+			want: "alpha\nbeta\ngamma\n", // every line contains 'a'
+			rc:   exit.Ok,
+		},
+		{
+			name: "char-class",
+			args: []string{"-E", "^[abc]", "/f"},
+			body: "alpha\nbeta\ngamma\ndelta\n",
+			want: "alpha\nbeta\n",
+			rc:   exit.Ok,
+		},
+		{
+			name: "anchor-start",
+			args: []string{"-E", "^foo", "/f"},
+			body: "foo\nfoobar\nbarfoo\n",
+			want: "foo\nfoobar\n",
+			rc:   exit.Ok,
+		},
+		{
+			name: "anchor-end",
+			args: []string{"-E", "bar$", "/f"},
+			body: "foo\nfoobar\nbarfoo\n",
+			want: "foobar\n",
+			rc:   exit.Ok,
+		},
+		{
+			name: "quantifier-plus",
+			args: []string{"-E", "a+", "/f"},
+			body: "alpha\nbeta\ngamma\nzzz\n",
+			want: "alpha\nbeta\ngamma\n",
+			rc:   exit.Ok,
+		},
+		{
+			name: "quantifier-star",
+			args: []string{"-E", "^ab*$", "/f"},
+			body: "a\nab\nabb\nx\n",
+			want: "a\nab\nabb\n",
+			rc:   exit.Ok,
+		},
+		{
+			name: "ignore-case",
+			args: []string{"-E", "-i", "ALPHA|BETA", "/f"},
+			body: "alpha\nbeta\ngamma\n",
+			want: "alpha\nbeta\n",
+			rc:   exit.Ok,
+		},
+		{
+			name: "invert",
+			args: []string{"-E", "-v", "^[ab]", "/f"},
+			body: "alpha\nbeta\ngamma\ndelta\n",
+			want: "gamma\ndelta\n",
+			rc:   exit.Ok,
+		},
+		{
+			name: "numbered",
+			args: []string{"-E", "-n", "a+", "/f"},
+			body: "x\nalpha\ny\ngamma\n",
+			want: "2:alpha\n4:gamma\n",
+			rc:   exit.Ok,
+		},
+		{
+			name: "no-match",
+			args: []string{"-E", "^zzz$", "/f"},
+			body: "alpha\nbeta\n",
+			want: "",
+			rc:   exit.Fail,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			e, out, _, m := env(t, tc.args...)
+			_ = m.WriteFile("/f", []byte(tc.body))
+			if rc := Run(e); rc != tc.rc {
+				t.Fatalf("rc = %d, want %d", rc, tc.rc)
+			}
+			if got := out.String(); got != tc.want {
+				t.Errorf("out = %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+// An invalid -E pattern must surface to stderr and exit 2 (usage), not
+// silently match nothing.
+func TestGrepRegexInvalid(t *testing.T) {
+	e, _, errb, m := env(t, "-E", "[", "/f")
+	_ = m.WriteFile("/f", []byte("alpha\n"))
+	if rc := Run(e); rc != exit.Usage {
+		t.Fatalf("rc = %d, want %d", rc, exit.Usage)
+	}
+	if !strings.Contains(errb.String(), "invalid regex") {
+		t.Errorf("stderr = %q", errb.String())
+	}
+}
+
 func TestGrepPrettyErr(t *testing.T) {
 	cases := []struct {
 		err  error

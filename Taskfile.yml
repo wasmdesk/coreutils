@@ -9,6 +9,11 @@
 # Two shipping modes: (a) native CLI binaries via cmd/<tool>/main, and
 # (b) in-process builtins for the wasmbox terminal via multicall.Dispatch.
 # The Taskfile drives (a) + the shared coverage gate that covers both.
+#
+# Bring-up note: go.mod currently `replace`s github.com/go-ruby-regexp/regexp
+# at ../../go-ruby-regexp/regexp (sibling checkout). All tasks below run
+# with GOWORK=off so Go honours the module-local replace directly. Drop the
+# replace once go-ruby-regexp ships a tagged release.
 
 version: "3"
 
