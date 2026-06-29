@@ -58,10 +58,11 @@ func TestHas(t *testing.T) {
 
 func TestNames(t *testing.T) {
 	got := Names()
-	if len(got) != 15 {
-		t.Errorf("Names len = %d, want 15", len(got))
+	// v0.3: 15 original tools + 27 new tools = 42.
+	if len(got) != 42 {
+		t.Errorf("Names len = %d, want 42", len(got))
 	}
-	// Verify sorted + presence of a few known names.
+	// Verify sorted + presence of a sample from each v0.3 family.
 	for i := 1; i < len(got); i++ {
 		if got[i] < got[i-1] {
 			t.Errorf("Names not sorted: %v", got)
@@ -75,7 +76,12 @@ func TestNames(t *testing.T) {
 		}
 		return false
 	}
-	for _, want := range []string{"cat", "ls", "pwd", "wc", "find"} {
+	for _, want := range []string{
+		"cat", "ls", "pwd", "wc", "find", // v0.2
+		"sort", "uniq", "cut", "tr", "paste", "nl", "tac", "rev", "fold", "expand", "unexpand", "printf",
+		"basename", "dirname", "date", "seq", "sleep", "true", "false", "yes", "env", "expr",
+		"md5sum", "sha1sum", "sha256sum", "base64", "base32",
+	} {
 		if !contains(want) {
 			t.Errorf("Names missing %q: %v", want, got)
 		}

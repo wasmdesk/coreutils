@@ -1,7 +1,7 @@
 # Taskfile for wasmdesk/coreutils — https://taskfile.dev
 #
 #   task            # list the available tasks
-#   task build:all  # build all 15 native CLI binaries into bin/
+#   task build:all  # build all 42 native CLI binaries into bin/
 #   task test       # vet + race-test + 100% coverage gate
 #   task run -- ls -l README.md   # run any tool by argv
 #   task clean      # remove bin/

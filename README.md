@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue)](LICENSE)
 [![Go](https://img.shields.io/badge/go-1.26.4%2B-00ADD8)](https://go.dev/dl/)
-[![Status](https://img.shields.io/badge/status-v0.2%20%C2%B7%2015%20tools-1a7f37)](#tools)
+[![Status](https://img.shields.io/badge/status-v0.3%20%C2%B7%2042%20tools-1a7f37)](#tools)
 
 **A pure-Go (no cgo) GNU-coreutils-style command suite** that ships in two
 modes: native CLI binaries (`go install ./cmd/<tool>`) and in-process
@@ -16,12 +16,21 @@ builtins for the wasmbox terminal client (the same `Run` powers both).
 # Native CLIs:
 go install ./cmd/pwd ./cmd/echo ./cmd/cat ./cmd/ls ./cmd/mkdir \
            ./cmd/rmdir ./cmd/rm ./cmd/cp ./cmd/mv ./cmd/touch \
-           ./cmd/head ./cmd/tail ./cmd/wc ./cmd/grep ./cmd/find
+           ./cmd/head ./cmd/tail ./cmd/wc ./cmd/grep ./cmd/find \
+           ./cmd/sort ./cmd/uniq ./cmd/cut ./cmd/tr ./cmd/paste \
+           ./cmd/nl ./cmd/tac ./cmd/rev ./cmd/fold ./cmd/expand \
+           ./cmd/unexpand ./cmd/printf ./cmd/basename ./cmd/dirname \
+           ./cmd/date ./cmd/seq ./cmd/sleep ./cmd/true ./cmd/false \
+           ./cmd/yes ./cmd/env ./cmd/expr ./cmd/md5sum ./cmd/sha1sum \
+           ./cmd/sha256sum ./cmd/base64 ./cmd/base32
 
 pwd
 echo hello
 ls -l
 wc -l README.md
+seq 1 2 9 | paste - -
+printf '%s=%s\n' user david
+echo hello | sha256sum
 ```
 
 For browser mode, see [wasmbox](https://github.com/wasmdesk/wasmbox) — its
@@ -30,11 +39,12 @@ IndexedDB-backed VFS.
 
 ## Tools
 
-v0 ships the 15 most-used utilities; the package layout
-(`cmd/<tool>/Run(env)`) scales to the full ~100 GNU coreutils set without
-redesign.
+v0.3 ships 42 utilities; the package layout (`cmd/<tool>/Run(env)`) scales
+to the full ~100 GNU coreutils set without redesign.
 
-| tool   | flags supported (v0)                |
+### File / filesystem (v0.2 -- 15)
+
+| tool   | flags supported                     |
 | ------ | ----------------------------------- |
 | `pwd`  | (no flags)                          |
 | `echo` | (no flags; v0 has no `-e`)          |
@@ -51,6 +61,48 @@ redesign.
 | `wc`   | `-l` / `-w` / `-c`                  |
 | `grep` | `-i`, `-v`, `-n`, `-E` (regex via go-ruby-regexp — see "Limitations") |
 | `find` | `-name GLOB` (shell-style glob)     |
+
+### Text processing (v0.3 -- 12)
+
+| tool       | flags supported                                     |
+| ---------- | --------------------------------------------------- |
+| `sort`     | `-r` reverse, `-n` numeric, `-u` unique             |
+| `uniq`     | `-c` count, `-d` only dups, `-u` only singletons    |
+| `cut`      | `-f LIST -d DELIM`, `-c LIST`, `-b LIST` (`N`,`N-M`,`N-`,`-M`,`N,M,...`) |
+| `tr`       | `SET1 [SET2]`, `-d` delete, `-s` squeeze (ranges, `\n \t \\`) |
+| `paste`    | `-d DELIM` (default tab)                            |
+| `nl`       | (no flags; `%6d\t%s\n` format)                      |
+| `tac`      | (no flags; reverse cat)                             |
+| `rev`      | (no flags; UTF-8 aware)                             |
+| `fold`     | `-w N` (default 80)                                 |
+| `expand`   | `-t N` (default 8) — tabs to spaces                 |
+| `unexpand` | `-t N` (default 8) — leading spaces to tabs         |
+| `printf`   | `%s %d %x %o %c %%`, escapes `\n \t \\`             |
+
+### Utility (v0.3 -- 10)
+
+| tool       | flags supported                                     |
+| ---------- | --------------------------------------------------- |
+| `basename` | `PATH [SUFFIX]`                                     |
+| `dirname`  | (no flags; one-or-more PATHs)                       |
+| `date`     | `-d RFC3339` (default: now in UTC RFC1123)          |
+| `seq`      | `N` / `A B` / `A S B` (integer)                     |
+| `sleep`    | `SECONDS...` (integer or float, sums multiple)      |
+| `true`     | exit 0                                              |
+| `false`    | exit 1                                              |
+| `yes`      | `STRING`, `-n COUNT` (default 1 to avoid wedging)   |
+| `env`      | (no args; prints sorted KEY=VALUE)                  |
+| `expr`     | `+ - * / %`, `= != < <= > >=`, `STR : REGEX`        |
+
+### Crypto / encoding (v0.3 -- 5)
+
+| tool        | flags supported                              |
+| ----------- | -------------------------------------------- |
+| `md5sum`    | (no flags; `<hash>  <file>` / `-` for stdin) |
+| `sha1sum`   | (no flags)                                   |
+| `sha256sum` | (no flags)                                   |
+| `base64`    | `-d` / `--decode` (whitespace-tolerant)      |
+| `base32`    | `-d` / `--decode` (whitespace-tolerant)      |
 
 ## Architecture
 
@@ -71,15 +123,26 @@ browser (where `env.FS` is a wasmbox `sharedvfs` adapter over IndexedDB).
 ## Browser mode
 
 The wasmbox terminal wires `multicall.Dispatch(name, env)` into its shell
-dispatch table. The terminal's existing builtins (`cat`, `ls`, `cd`,
-`mkdir`, `touch`, `rm`, `echo`, `pwd`) become thin shims; the new ones
-(`cp`, `mv`, `rmdir`, `head`, `tail`, `wc`, `grep`, `find`) drop in
-through the same path. See [wasmbox](https://github.com/wasmdesk/wasmbox)
+dispatch table. The terminal looks up `multicall.Has(name)` to decide
+whether to route -- so every new entry in `multicall.registry` becomes an
+in-browser builtin automatically, with no terminal-side code change. See
+[wasmbox](https://github.com/wasmdesk/wasmbox)
 `clients/terminal/internal/scene/shell.go` for the integration.
 
-## Limitations (v0)
+## Limitations (v0.3)
 
 - `touch` does not update mtime (the wasmbox VFS has no mtime field).
+- `yes` defaults to a single line; pass `-n COUNT` for repeats (browser-host
+  safety -- a real `yes` would spin forever).
+- `cut -b` is treated as `-c` (ASCII-only). Multi-byte byte addressing lands
+  with the utf8 SIMD work.
+- `tr` is byte-oriented (multi-byte runes pass through verbatim, no class
+  syntax like `[:alpha:]`).
+- `env` is print-only -- no `KEY=VAL CMD` execution (no subprocess support).
+- `expr` accepts only the binary `A OP B` form; no parentheses.
+- `printf` supports `%s %d %x %o %c %%` and escapes `\n \t \\` only.
+- `sleep` uses a swappable function seam (`sleep.SleepFn`); the in-browser
+  builtin needs a host-aware implementation.
 - `grep` defaults to **substring** match (POSIX-fixed). Pass `-E` to switch
   to the pure-Go [go-ruby-regexp](https://github.com/go-ruby-regexp/regexp)
   engine (Onigmo subset: alternation, classes, anchors, quantifiers,
@@ -96,7 +159,7 @@ through the same path. See [wasmbox](https://github.com/wasmdesk/wasmbox)
 ## Build / test
 
 ```bash
-task build:all   # 15 native binaries under bin/
+task build:all   # 42 native binaries under bin/
 task test        # full suite + 100% coverage gate
 task run -- ls -l README.md
 ```
