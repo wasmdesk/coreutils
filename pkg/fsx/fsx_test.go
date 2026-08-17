@@ -326,26 +326,19 @@ func TestOSFSRoundtrip(t *testing.T) {
 		t.Errorf("translate(custom) = %v, want passthrough", got)
 	}
 
-	// Drive the post-Stat ReadDir/Remove failure branches by chmod-stripping
-	// permissions on a subdir so Stat succeeds but ReadDir gets EACCES. The
-	// test is a no-op when running as root (where chmod 0 still grants
-	// access), which the CI matrix flags via t.Skip.
-	if os.Getuid() == 0 {
-		t.Log("skipping perm-denied branches: running as root")
-		return
-	}
+	// Drive the post-Stat ReadDir/Remove failure branches: a directory that
+	// Stat sees cleanly but whose listing fails (a TOCTOU race or an EACCES on
+	// POSIX). We inject that failure through the osReadDir seam so the branch is
+	// reachable on every platform, including Windows, where the read-only file
+	// attribute does not deny directory listing the way chmod 0 does on POSIX.
 	locked := filepath.Join(dir, "locked")
 	if err := os.Mkdir(locked, 0o755); err != nil {
 		t.Fatalf("mkdir locked = %v", err)
 	}
-	if err := os.WriteFile(filepath.Join(locked, "kid"), []byte("x"), 0o644); err != nil {
-		t.Fatalf("write kid = %v", err)
-	}
-	if err := os.Chmod(locked, 0); err != nil {
-		t.Fatalf("chmod 0 = %v", err)
-	}
-	defer func() { _ = os.Chmod(locked, 0o755) }()
-	// ReadDir-after-Stat failure (Stat works, ReadDir gets EACCES).
+	saved := osReadDir
+	osReadDir = func(string) ([]os.DirEntry, error) { return nil, os.ErrPermission }
+	defer func() { osReadDir = saved }()
+	// ReadDir-after-Stat failure (Stat works, listing is denied).
 	if _, err := osf.ReadDir(locked); err == nil {
 		t.Errorf("ReadDir on locked dir succeeded, want err")
 	}
