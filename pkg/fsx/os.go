@@ -20,6 +20,14 @@ type OSFS struct{}
 // is enough; we expose a constructor for symmetry with NewMemFS.
 func NewOSFS() *OSFS { return &OSFS{} }
 
+// osReadDir is the directory-listing hook used for the post-Stat reads in
+// ReadDir and Remove. It is a variable rather than a direct os.ReadDir call so
+// that the TOCTOU / permission-denied error branches below are reachable in a
+// test on every platform, including Windows, where the read-only attribute
+// does not deny directory listing the way a POSIX chmod 0 does. Production code
+// never reassigns it.
+var osReadDir = os.ReadDir
+
 // translate maps an os error onto our sentinels so tools can switch on
 // fsx.ErrNotFound regardless of the backing store.
 func translate(err error) error {
@@ -85,7 +93,7 @@ func (OSFS) ReadDir(dir string) ([]FileInfo, error) {
 	}
 	// Past the Stat gate the only failure left is a TOCTOU race; we forward
 	// it through translate without a parallel test path.
-	entries, err := os.ReadDir(dir)
+	entries, err := osReadDir(dir)
 	if err != nil {
 		return nil, translate(err)
 	}
@@ -111,7 +119,7 @@ func (OSFS) Remove(p string) error {
 	if st.IsDir() {
 		// On a dir, refuse if non-empty so callers must reach for RemoveAll.
 		// os.ReadDir failures past the Stat gate are TOCTOU only; forwarded.
-		entries, derr := os.ReadDir(p)
+		entries, derr := osReadDir(p)
 		if derr != nil {
 			return translate(derr)
 		}
