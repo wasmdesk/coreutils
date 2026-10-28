@@ -42,6 +42,14 @@ IndexedDB-backed VFS.
 v0.3 ships 42 utilities; the package layout (`cmd/<tool>/Run(env)`) scales
 to the full ~100 GNU coreutils set without redesign.
 
+`cat`, `head`, `tail`, `wc`, `grep` and `paste` read **standard input**
+when given no file operand, and for the operand `-` (POSIX), so they work
+in pipelines; `cat` streams it as it arrives. The tools that already read
+standard input (`sort`, `uniq`, `cut`, `tr`, `nl`, `tac`, …) are
+unchanged. Built for `GOOS=wasip1`, the multicall binary is the userland of
+the [go-wasmcontainers/shell](https://github.com/go-wasmcontainers/shell)
+base image, where `sh` runs these tools as separate processes.
+
 ### File / filesystem (v0.2 -- 15)
 
 | tool   | flags supported                     |

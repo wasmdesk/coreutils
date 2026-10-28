@@ -99,6 +99,25 @@ type Env struct {
 	FS     FS
 }
 
+// StdinOperand is the operand that names standard input, as in POSIX
+// cat: "If a file is '-', the cat utility shall read from the standard
+// input at that point in the sequence"; with no file operand, standard
+// input is used. head, tail, wc, grep and paste follow the same rule.
+const StdinOperand = "-"
+
+// ReadOperand returns the content of a file operand: StdinOperand reads
+// env.Stdin to its end (nothing if Stdin is nil); anything else is a path
+// resolved against Cwd and read through FS.
+func (e *Env) ReadOperand(p string) ([]byte, error) {
+	if p == StdinOperand {
+		if e.Stdin == nil {
+			return nil, nil
+		}
+		return io.ReadAll(e.Stdin)
+	}
+	return e.FS.ReadFile(Resolve(e.Cwd, p))
+}
+
 // Clean is a POSIX-only path cleaner that does NOT depend on path/filepath
 // (so it behaves identically on every host). Collapses repeated slashes,
 // resolves "." and "..", and returns either "/" or a leading-slash path with

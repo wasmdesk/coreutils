@@ -42,13 +42,11 @@ func Run(env *fsx.Env) int {
 		paths = append(paths, a)
 	}
 	if len(paths) == 0 {
-		fmt.Fprintln(env.Stderr, "tail: missing operand")
-		return exit.Usage
+		paths = []string{fsx.StdinOperand}
 	}
 	rc := exit.Ok
 	for i, p := range paths {
-		abs := fsx.Resolve(env.Cwd, p)
-		data, err := env.FS.ReadFile(abs)
+		data, err := env.ReadOperand(p)
 		if err != nil {
 			fmt.Fprintf(env.Stderr, "tail: %s: %s\n", p, prettyErr(err))
 			rc = exit.Fail

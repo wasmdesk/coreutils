@@ -52,11 +52,14 @@ func Run(env *fsx.Env) int {
 			pos = append(pos, a)
 		}
 	}
-	if len(pos) < 2 {
-		fmt.Fprintln(env.Stderr, "grep: usage: grep [-E] [-i] [-v] [-n] PATTERN FILE...")
+	if len(pos) < 1 {
+		fmt.Fprintln(env.Stderr, "grep: usage: grep [-E] [-i] [-v] [-n] PATTERN [FILE...]")
 		return exit.Usage
 	}
 	pattern, files := pos[0], pos[1:]
+	if len(files) == 0 {
+		files = []string{fsx.StdinOperand}
+	}
 
 	matcher, err := buildMatcher(pattern, regex, ignoreCase)
 	if err != nil {
@@ -66,8 +69,7 @@ func Run(env *fsx.Env) int {
 
 	rc := exit.Fail
 	for _, p := range files {
-		abs := fsx.Resolve(env.Cwd, p)
-		data, err := env.FS.ReadFile(abs)
+		data, err := env.ReadOperand(p)
 		if err != nil {
 			fmt.Fprintf(env.Stderr, "grep: %s: %s\n", p, prettyErr(err))
 			continue
