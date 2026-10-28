@@ -80,19 +80,17 @@ func TestTailNZero(t *testing.T) {
 	}
 }
 
-func TestTailNoArgs(t *testing.T) {
-	e, _, errb, _ := env(t)
-	if rc := Run(e); rc != exit.Usage {
-		t.Errorf("rc = %d", rc)
-	}
-	if !strings.Contains(errb.String(), "missing operand") {
-		t.Errorf("stderr = %q", errb.String())
+func TestTailNoArgsReadsStdin(t *testing.T) {
+	e, out, _, _ := env(t, "-n", "1")
+	e.Stdin = strings.NewReader("first\nlast\n")
+	if rc := Run(e); rc != exit.Ok || out.String() != "last\n" {
+		t.Errorf("rc = %d out = %q", rc, out.String())
 	}
 }
 
 func TestTailEmptyArgv(t *testing.T) {
 	e := &fsx.Env{Stdout: new(bytes.Buffer), Stderr: new(bytes.Buffer), FS: fsx.NewMemFS(), Cwd: "/"}
-	if rc := Run(e); rc != exit.Usage {
+	if rc := Run(e); rc != exit.Ok {
 		t.Errorf("rc = %d", rc)
 	}
 }

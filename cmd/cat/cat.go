@@ -7,6 +7,7 @@ package cat
 import (
 	"errors"
 	"fmt"
+	"io"
 	"strings"
 
 	"github.com/wasmdesk/coreutils/pkg/exit"
@@ -15,9 +16,8 @@ import (
 
 // Run concatenates the listed files to env.Stdout. Supports `-n` (number
 // every output line, GNU style: a right-justified 6-wide line number + tab).
-// A missing operand is treated as a usage error (we don't yet stream Stdin --
-// the wasmbox shell pipeline has no pipes, and adding stdin-passthrough
-// without that is more confusion than utility).
+// With no operand, or for the operand "-", it copies standard input
+// (POSIX cat).
 func Run(env *fsx.Env) int {
 	args := env.Args
 	if len(args) > 0 {
@@ -34,14 +34,22 @@ func Run(env *fsx.Env) int {
 		}
 	}
 	if len(paths) == 0 {
-		fmt.Fprintln(env.Stderr, "cat: missing operand")
-		return exit.Usage
+		paths = []string{fsx.StdinOperand}
 	}
 	rc := exit.Ok
 	line := 1
 	for _, p := range paths {
-		abs := fsx.Resolve(env.Cwd, p)
-		data, err := env.FS.ReadFile(abs)
+		if p == fsx.StdinOperand && !number {
+			// Stream: `producer | cat` must not wait for the producer to end.
+			if env.Stdin != nil {
+				if _, err := io.Copy(env.Stdout, env.Stdin); err != nil {
+					fmt.Fprintf(env.Stderr, "cat: -: %s\n", err)
+					rc = exit.Fail
+				}
+			}
+			continue
+		}
+		data, err := env.ReadOperand(p)
 		if err != nil {
 			fmt.Fprintf(env.Stderr, "cat: %s: %s\n", p, prettyErr(err))
 			rc = exit.Fail

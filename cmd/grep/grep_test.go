@@ -117,13 +117,18 @@ func TestGrepEmptyArgv(t *testing.T) {
 	}
 }
 
-func TestGrepPatternOnly(t *testing.T) {
-	e, _, errb, _ := env(t, "pat")
-	if rc := Run(e); rc != exit.Usage {
-		t.Errorf("rc = %d", rc)
+func TestGrepPatternOnlyReadsStdin(t *testing.T) {
+	e, out, _, _ := env(t, "pat")
+	e.Stdin = strings.NewReader("no\na pat here\n")
+	if rc := Run(e); rc != exit.Ok || out.String() != "a pat here\n" {
+		t.Errorf("rc = %d out = %q", rc, out.String())
 	}
-	if !strings.Contains(errb.String(), "usage:") {
-		t.Errorf("stderr = %q", errb.String())
+}
+
+func TestGrepNoPattern(t *testing.T) {
+	e, _, errb, _ := env(t)
+	if rc := Run(e); rc != exit.Usage || !strings.Contains(errb.String(), "usage:") {
+		t.Errorf("rc = %d stderr = %q", rc, errb.String())
 	}
 }
 

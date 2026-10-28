@@ -15,8 +15,8 @@ import (
 
 // Run merges corresponding lines from each named file side by side,
 // separated by DELIM (default TAB). When sources are uneven, missing
-// columns become empty strings. v0 does NOT read stdin (the wasmbox
-// shell pipeline has no pipes) -- at least one path is required.
+// columns become empty strings. With no operand, or for "-", it reads
+// standard input.
 func Run(env *fsx.Env) int {
 	args := env.Args
 	if len(args) > 0 {
@@ -38,14 +38,14 @@ func Run(env *fsx.Env) int {
 		paths = append(paths, a)
 	}
 	if len(paths) == 0 {
-		fmt.Fprintln(env.Stderr, "paste: missing operand")
-		return exit.Usage
+		paths = []string{fsx.StdinOperand}
 	}
 	cols := make([][]string, len(paths))
 	maxLen := 0
 	for i, p := range paths {
-		abs := fsx.Resolve(env.Cwd, p)
-		b, err := env.FS.ReadFile(abs)
+		// A second "-" finds standard input already read: an empty
+		// column (POSIX paste deals its lines out round-robin instead).
+		b, err := env.ReadOperand(p)
 		if err != nil {
 			fmt.Fprintf(env.Stderr, "paste: %s: %s\n", p, prettyErr(err))
 			return exit.Fail

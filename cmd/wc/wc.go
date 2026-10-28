@@ -39,15 +39,15 @@ func Run(env *fsx.Env) int {
 	if !lFlag && !wFlag && !cFlag {
 		lFlag, wFlag, cFlag = true, true, true
 	}
-	if len(paths) == 0 {
-		fmt.Fprintln(env.Stderr, "wc: missing operand")
-		return exit.Usage
+	// With no operand wc reads standard input and prints no name.
+	noOperand := len(paths) == 0
+	if noOperand {
+		paths = []string{fsx.StdinOperand}
 	}
 	rc := exit.Ok
 	var totL, totW, totC int
 	for _, p := range paths {
-		abs := fsx.Resolve(env.Cwd, p)
-		data, err := env.FS.ReadFile(abs)
+		data, err := env.ReadOperand(p)
 		if err != nil {
 			fmt.Fprintf(env.Stderr, "wc: %s: %s\n", p, prettyErr(err))
 			rc = exit.Fail
@@ -57,7 +57,11 @@ func Run(env *fsx.Env) int {
 		totL += l
 		totW += w
 		totC += c
-		printRow(env.Stdout, l, w, c, p, lFlag, wFlag, cFlag)
+		label := p
+		if noOperand {
+			label = ""
+		}
+		printRow(env.Stdout, l, w, c, label, lFlag, wFlag, cFlag)
 	}
 	if len(paths) > 1 {
 		printRow(env.Stdout, totL, totW, totC, "total", lFlag, wFlag, cFlag)
@@ -102,6 +106,10 @@ func printRow(w writer, l, ws, c int, label string, lFlag, wFlag, cFlag bool) {
 	}
 	if cFlag {
 		emit(c)
+	}
+	if label == "" {
+		fmt.Fprintln(w)
+		return
 	}
 	fmt.Fprintf(w, " %s\n", label)
 }

@@ -70,19 +70,17 @@ func TestHeadNZero(t *testing.T) {
 	}
 }
 
-func TestHeadNoArgs(t *testing.T) {
-	e, _, errb, _ := env(t)
-	if rc := Run(e); rc != exit.Usage {
-		t.Errorf("rc = %d", rc)
-	}
-	if !strings.Contains(errb.String(), "missing operand") {
-		t.Errorf("stderr = %q", errb.String())
+func TestHeadNoArgsReadsStdin(t *testing.T) {
+	e, out, _, _ := env(t, "-n", "1")
+	e.Stdin = strings.NewReader("first\nsecond\n")
+	if rc := Run(e); rc != exit.Ok || out.String() != "first\n" {
+		t.Errorf("rc = %d out = %q", rc, out.String())
 	}
 }
 
 func TestHeadEmptyArgv(t *testing.T) {
 	e := &fsx.Env{Stdout: new(bytes.Buffer), Stderr: new(bytes.Buffer), FS: fsx.NewMemFS(), Cwd: "/"}
-	if rc := Run(e); rc != exit.Usage {
+	if rc := Run(e); rc != exit.Ok {
 		t.Errorf("rc = %d", rc)
 	}
 }

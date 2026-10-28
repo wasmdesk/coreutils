@@ -90,19 +90,25 @@ func TestWcMulti(t *testing.T) {
 	}
 }
 
-func TestWcNoArgs(t *testing.T) {
-	e, _, errb, _ := env(t)
-	if rc := Run(e); rc != exit.Usage {
-		t.Errorf("rc = %d", rc)
+func TestWcNoArgsReadsStdin(t *testing.T) {
+	e, out, _, _ := env(t, "-l")
+	e.Stdin = strings.NewReader("a\nb\nc\n")
+	if rc := Run(e); rc != exit.Ok || out.String() != "3\n" {
+		t.Errorf("rc = %d out = %q", rc, out.String())
 	}
-	if !strings.Contains(errb.String(), "missing operand") {
-		t.Errorf("stderr = %q", errb.String())
+}
+
+func TestWcDashOperandIsNamed(t *testing.T) {
+	e, out, _, _ := env(t, "-l", "-")
+	e.Stdin = strings.NewReader("a\n")
+	if rc := Run(e); rc != exit.Ok || out.String() != "1 -\n" {
+		t.Errorf("rc = %d out = %q", rc, out.String())
 	}
 }
 
 func TestWcEmptyArgv(t *testing.T) {
 	e := &fsx.Env{Stdout: new(bytes.Buffer), Stderr: new(bytes.Buffer), FS: fsx.NewMemFS(), Cwd: "/"}
-	if rc := Run(e); rc != exit.Usage {
+	if rc := Run(e); rc != exit.Ok {
 		t.Errorf("rc = %d", rc)
 	}
 }

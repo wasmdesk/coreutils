@@ -82,13 +82,17 @@ func TestPasteIsDir(t *testing.T) {
 	}
 }
 
-func TestPasteNoArgs(t *testing.T) {
-	e, _, errb, _ := newEnv()
-	if rc := Run(e); rc != exit.Usage {
-		t.Errorf("rc = %d", rc)
+func TestPasteNoArgsReadsStdin(t *testing.T) {
+	e, out, _, m := newEnv("-", "/f")
+	_ = m.WriteFile("/f", []byte("1\n2\n"))
+	e.Stdin = strings.NewReader("a\nb\n")
+	if rc := Run(e); rc != exit.Ok || out.String() != "a\t1\nb\t2\n" {
+		t.Errorf("rc = %d out = %q", rc, out.String())
 	}
-	if !strings.Contains(errb.String(), "missing operand") {
-		t.Errorf("stderr = %q", errb.String())
+	e, out, _, _ = newEnv()
+	e.Stdin = strings.NewReader("x\n")
+	if rc := Run(e); rc != exit.Ok || out.String() != "x\n" {
+		t.Errorf("no operand: rc = %d out = %q", rc, out.String())
 	}
 }
 
@@ -119,7 +123,7 @@ func TestPastePrettyErr(t *testing.T) {
 
 func TestPasteEmptyArgv(t *testing.T) {
 	e := &fsx.Env{Stdout: new(bytes.Buffer), Stderr: new(bytes.Buffer), FS: fsx.NewMemFS(), Cwd: "/"}
-	if rc := Run(e); rc != exit.Usage {
+	if rc := Run(e); rc != exit.Ok {
 		t.Errorf("rc = %d", rc)
 	}
 }
