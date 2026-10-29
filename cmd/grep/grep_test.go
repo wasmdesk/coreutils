@@ -133,8 +133,10 @@ func TestGrepNoPattern(t *testing.T) {
 }
 
 func TestGrepMissingFile(t *testing.T) {
+	// POSIX grep: an error (here a missing file) with nothing selected is
+	// status 2, not 1 ("no line selected").
 	e, _, errb, _ := env(t, "x", "/nope")
-	if rc := Run(e); rc != exit.Fail {
+	if rc := Run(e); rc != exit.Usage {
 		t.Errorf("rc = %d", rc)
 	}
 	if !strings.Contains(errb.String(), "no such file or directory") {
