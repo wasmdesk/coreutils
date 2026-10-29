@@ -67,7 +67,7 @@ base image, where `sh` runs these tools as separate processes.
 | `head` | `-n N` (default 10)                 |
 | `tail` | `-n N` (default 10)                 |
 | `wc`   | `-l` / `-w` / `-c`                  |
-| `grep` | `-i`, `-v`, `-n`, `-E` (regex via go-ruby-regexp — see "Limitations") |
+| `grep` | `-i`, `-v`, `-n`, `-E` (regex via go-ruby-regexp — see "Limitations"), `-F`, `-r`/`-R`, `-l`, `-c`, `-o`, `-q`, `-w`, `-H`/`-h`, combined short flags (`-rn`) |
 | `find` | `-name GLOB` (shell-style glob)     |
 
 ### Text processing (v0.3 -- 12)
@@ -171,6 +171,9 @@ in-browser builtin automatically, with no terminal-side code change. See
   engine (Onigmo subset: alternation, classes, anchors, quantifiers,
   `(?i)` etc.). Under `-E`, `-i` is wired to the engine's case-folding
   (Unicode-correct), and a malformed pattern exits 2.
+- `grep` exits 0 when a line was selected, 1 when none was, and 2 on a
+  read error with nothing selected (POSIX). `-r` with no operand searches
+  `.`; directories are walked in name order, at most 64 levels deep.
 - `coreutils` depends on `go-ruby-regexp` via a `replace` directive that
   points at a sibling checkout (`../../go-ruby-regexp/regexp`) for the
   bring-up era. When go-ruby-regexp cuts a tagged release, drop the
