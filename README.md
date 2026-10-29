@@ -4,7 +4,7 @@
 
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue)](LICENSE)
 [![Go](https://img.shields.io/badge/go-1.26.4%2B-00ADD8)](https://go.dev/dl/)
-[![Status](https://img.shields.io/badge/status-v0.3%20%C2%B7%2042%20tools-1a7f37)](#tools)
+[![Status](https://img.shields.io/badge/status-v0.5%20%C2%B7%2049%20tools-1a7f37)](#tools)
 
 **A pure-Go (no cgo) GNU-coreutils-style command suite** that ships in two
 modes: native CLI binaries (`go install ./cmd/<tool>`) and in-process
@@ -39,7 +39,7 @@ IndexedDB-backed VFS.
 
 ## Tools
 
-v0.3 ships 42 utilities; the package layout (`cmd/<tool>/Run(env)`) scales
+49 utilities (42 in v0.3, 7 more since); the package layout (`cmd/<tool>/Run(env)`) scales
 to the full ~100 GNU coreutils set without redesign.
 
 `cat`, `head`, `tail`, `wc`, `grep` and `paste` read **standard input**
@@ -112,6 +112,21 @@ base image, where `sh` runs these tools as separate processes.
 | `base64`    | `-d` / `--decode` (whitespace-tolerant)      |
 | `base32`    | `-d` / `--decode` (whitespace-tolerant)      |
 
+### System information and plumbing (v0.5 -- 7)
+
+A WebAssembly container (or the browser) has no kernel to ask and no
+users: these tools answer with what is true there.
+
+| tool       | flags supported                                                  |
+| ---------- | ---------------------------------------------------------------- |
+| `hostname` | prints `$HOSTNAME` (what a container engine sets), else the OS's, else `localhost`; setting it is refused |
+| `uname`    | `-s -n -r -v -m -o -p -i -a`; under `GOOS=wasip1`: `WASI <host> preview1 wasip1 wasm32 WASI` |
+| `id`       | `-u -g -G -n -r [root]`: `uid=0(root) gid=0(root) groups=0(root)` |
+| `whoami`   | `root`                                                           |
+| `clear`    | `-x` keeps the scrollback                                        |
+| `tee`      | `-a`, `-i` (accepted); stdout streams, FILEs are written when the input ends |
+| `which`    | `-a`; tries `<dir>/<name>` then `<dir>/<name>.wasm` on `$PATH`   |
+
 ## Architecture
 
 ```
@@ -167,7 +182,7 @@ in-browser builtin automatically, with no terminal-side code change. See
 ## Build / test
 
 ```bash
-task build:all   # 42 native binaries under bin/
+task build:all   # 49 native binaries under bin/
 task test        # full suite + 100% coverage gate
 task run -- ls -l README.md
 ```
