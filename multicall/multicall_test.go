@@ -58,9 +58,10 @@ func TestHas(t *testing.T) {
 
 func TestNames(t *testing.T) {
 	got := Names()
-	// v0.3: 15 original tools + 27 new tools = 42.
-	if len(got) != 42 {
-		t.Errorf("Names len = %d, want 42", len(got))
+	// v0.3: 15 original tools + 27 new tools = 42; v0.5: + 7
+	// (hostname, uname, id, whoami, clear, tee, which) = 49.
+	if len(got) != 49 {
+		t.Errorf("Names len = %d, want 49", len(got))
 	}
 	// Verify sorted + presence of a sample from each v0.3 family.
 	for i := 1; i < len(got); i++ {

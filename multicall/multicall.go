@@ -15,6 +15,7 @@ import (
 	"github.com/wasmdesk/coreutils/cmd/base64"
 	"github.com/wasmdesk/coreutils/cmd/basename"
 	"github.com/wasmdesk/coreutils/cmd/cat"
+	"github.com/wasmdesk/coreutils/cmd/clear"
 	"github.com/wasmdesk/coreutils/cmd/cp"
 	"github.com/wasmdesk/coreutils/cmd/cut"
 	"github.com/wasmdesk/coreutils/cmd/date"
@@ -28,6 +29,8 @@ import (
 	"github.com/wasmdesk/coreutils/cmd/fold"
 	"github.com/wasmdesk/coreutils/cmd/grep"
 	"github.com/wasmdesk/coreutils/cmd/head"
+	"github.com/wasmdesk/coreutils/cmd/hostname"
+	"github.com/wasmdesk/coreutils/cmd/id"
 	"github.com/wasmdesk/coreutils/cmd/ls"
 	"github.com/wasmdesk/coreutils/cmd/md5sum"
 	"github.com/wasmdesk/coreutils/cmd/mkdir"
@@ -46,12 +49,16 @@ import (
 	"github.com/wasmdesk/coreutils/cmd/sort"
 	"github.com/wasmdesk/coreutils/cmd/tac"
 	"github.com/wasmdesk/coreutils/cmd/tail"
+	"github.com/wasmdesk/coreutils/cmd/tee"
 	"github.com/wasmdesk/coreutils/cmd/touch"
 	"github.com/wasmdesk/coreutils/cmd/tr"
 	truecmd "github.com/wasmdesk/coreutils/cmd/true"
+	"github.com/wasmdesk/coreutils/cmd/uname"
 	"github.com/wasmdesk/coreutils/cmd/unexpand"
 	"github.com/wasmdesk/coreutils/cmd/uniq"
 	"github.com/wasmdesk/coreutils/cmd/wc"
+	"github.com/wasmdesk/coreutils/cmd/which"
+	"github.com/wasmdesk/coreutils/cmd/whoami"
 	"github.com/wasmdesk/coreutils/cmd/yes"
 	"github.com/wasmdesk/coreutils/pkg/exit"
 	"github.com/wasmdesk/coreutils/pkg/fsx"
@@ -110,6 +117,14 @@ var registry = map[string]runFunc{
 	"sha256sum": sha256sum.Run,
 	"base64":    base64.Run,
 	"base32":    base32.Run,
+	// v0.5: system information and plumbing
+	"hostname": hostname.Run,
+	"uname":    uname.Run,
+	"id":       id.Run,
+	"whoami":   whoami.Run,
+	"clear":    clear.Run,
+	"tee":      tee.Run,
+	"which":    which.Run,
 }
 
 // Dispatch routes (name, env) to the matching tool's Run. Unknown names
