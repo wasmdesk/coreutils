@@ -97,3 +97,17 @@ func TestGrepRecursiveDepth(t *testing.T) {
 		t.Errorf("stdin under -r: %q %d", out, rc)
 	}
 }
+
+// unlistable is a file system whose directories cannot be listed.
+type unlistable struct{ *fsx.MemFS }
+
+func (unlistable) ReadDir(string) ([]fsx.FileInfo, error) { return nil, fsx.ErrNotDir }
+
+func TestGrepRecursiveUnlistable(t *testing.T) {
+	var out, errb bytes.Buffer
+	e := &fsx.Env{Args: []string{"grep", "-r", "foo", "/src"}, Stdout: &out, Stderr: &errb, FS: unlistable{tree()}, Cwd: "/"}
+	// The directory is kept as an operand, so reading it reports the error.
+	if rc := Run(e); rc != exit.Usage || out.Len() != 0 || !strings.Contains(errb.String(), "/src") {
+		t.Errorf("rc=%d out=%q err=%q", rc, out.String(), errb.String())
+	}
+}
