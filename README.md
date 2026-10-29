@@ -124,7 +124,7 @@ users: these tools answer with what is true there.
 | `id`       | `-u -g -G -n -r [root]`: `uid=0(root) gid=0(root) groups=0(root)` |
 | `whoami`   | `root`                                                           |
 | `clear`    | `-x` keeps the scrollback                                        |
-| `tee`      | `-a`, `-i` (accepted); stdout streams, FILEs are written when the input ends |
+| `tee`      | `-a`, `-i` (accepted); stdout and FILEs are written as the input arrives (`tee log` can be watched live); on an `fsx.FS` without the optional `fsx.Opener`, FILEs are written when the input ends |
 | `which`    | `-a`; tries `<dir>/<name>` then `<dir>/<name>.wasm` on `$PATH`   |
 
 ## Architecture

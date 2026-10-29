@@ -14,10 +14,12 @@ import (
 	"github.com/wasmdesk/coreutils/pkg/fsx"
 )
 
-// Run copies standard input to standard output as it arrives, and to each
-// FILE (POSIX tee [-a] [-i] [FILE...]; -i is accepted, there are no
-// signals to ignore). The fsx filesystem writes whole files, so the FILEs
-// are written when the input ends — after the previous content, with -a.
+// Run copies standard input to standard output and to each FILE as it
+// arrives (POSIX tee [-a] [-i] [FILE...]; -i is accepted, there are no
+// signals to ignore). The FILEs are opened first — emptied, or with -a
+// appended to — so `tee log` can be watched while it runs. On a
+// filesystem that only writes whole files (no fsx.Opener), the FILEs are
+// written when the input ends.
 func Run(env *fsx.Env) int {
 	args := env.Args
 	if len(args) > 0 {
@@ -45,44 +47,55 @@ func Run(env *fsx.Env) int {
 		}
 		files = append(files, a)
 	}
-	var data []byte
 	rc := exit.Ok
+	fail := func(name string, err error) {
+		fmt.Fprintf(env.Stderr, "tee: %s: %v\n", name, err)
+		rc = exit.Fail
+	}
+	type output struct {
+		name string
+		w    io.WriteCloser
+	}
+	var outs []output
+	for _, f := range files {
+		w, err := fsx.Create(env.FS, fsx.Resolve(env.Cwd, f), appendMode)
+		if err != nil {
+			fail(f, err) // the other FILEs still get the input
+			continue
+		}
+		outs = append(outs, output{f, w})
+	}
+	stdoutOK := true
 	if env.Stdin != nil {
 		buf := make([]byte, 32<<10)
 		for {
 			n, err := env.Stdin.Read(buf)
 			if n > 0 {
-				data = append(data, buf[:n]...)
-				if _, werr := env.Stdout.Write(buf[:n]); werr != nil && rc == exit.Ok {
-					fmt.Fprintf(env.Stderr, "tee: standard output: %v\n", werr)
-					rc = exit.Fail
+				if _, werr := env.Stdout.Write(buf[:n]); werr != nil && stdoutOK {
+					fail("standard output", werr)
+					stdoutOK = false
+				}
+				for i := 0; i < len(outs); {
+					if _, werr := outs[i].w.Write(buf[:n]); werr != nil {
+						fail(outs[i].name, werr) // reported once, then dropped
+						outs[i].w.Close()
+						outs = append(outs[:i], outs[i+1:]...)
+						continue
+					}
+					i++
 				}
 			}
 			if err != nil {
 				if !errors.Is(err, io.EOF) {
-					fmt.Fprintf(env.Stderr, "tee: standard input: %v\n", err)
-					rc = exit.Fail
+					fail("standard input", err)
 				}
 				break
 			}
 		}
 	}
-	for _, f := range files {
-		abs := fsx.Resolve(env.Cwd, f)
-		out := data
-		if appendMode {
-			old, err := env.FS.ReadFile(abs)
-			if err == nil {
-				out = append(append([]byte(nil), old...), data...)
-			} else if !errors.Is(err, fsx.ErrNotFound) {
-				fmt.Fprintf(env.Stderr, "tee: %s: %v\n", f, err)
-				rc = exit.Fail
-				continue
-			}
-		}
-		if err := env.FS.WriteFile(abs, out); err != nil {
-			fmt.Fprintf(env.Stderr, "tee: %s: %v\n", f, err)
-			rc = exit.Fail
+	for _, o := range outs {
+		if err := o.w.Close(); err != nil {
+			fail(o.name, err)
 		}
 	}
 	return rc
