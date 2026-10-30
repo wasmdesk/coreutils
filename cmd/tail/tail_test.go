@@ -106,12 +106,13 @@ func TestTailDashNNoValue(t *testing.T) {
 }
 
 func TestTailDashNBadValue(t *testing.T) {
-	for _, v := range []string{"foo", "-1"} {
+	// -n -1 is valid POSIX (the last line); these are not numbers.
+	for _, v := range []string{"foo", "+", "-x", "1.5"} {
 		e, _, errb, _ := env(t, "-n", v)
 		if rc := Run(e); rc != exit.Usage {
 			t.Errorf("rc(%s) = %d", v, rc)
 		}
-		if !strings.Contains(errb.String(), "invalid line count") {
+		if !strings.Contains(errb.String(), "invalid number") {
 			t.Errorf("stderr(%s) = %q", v, errb.String())
 		}
 	}
