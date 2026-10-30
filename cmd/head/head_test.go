@@ -101,7 +101,7 @@ func TestHeadDashNBadValue(t *testing.T) {
 		if rc := Run(e); rc != exit.Usage {
 			t.Errorf("rc(%s) = %d", v, rc)
 		}
-		if !strings.Contains(errb.String(), "invalid line count") {
+		if !strings.Contains(errb.String(), "invalid number") {
 			t.Errorf("stderr(%s) = %q", v, errb.String())
 		}
 	}

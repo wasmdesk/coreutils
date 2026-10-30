@@ -5,88 +5,126 @@
 package head
 
 import (
+	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"strconv"
-	"strings"
 
 	"github.com/wasmdesk/coreutils/pkg/exit"
 	"github.com/wasmdesk/coreutils/pkg/fsx"
 )
 
-// Run prints the first N lines (default 10) of each named file. -n N selects
-// the line count. With multiple files, a "==> name <==" header preceeds
-// each block. Missing operand -> Usage. Negative N is rejected.
+// Run is POSIX head: head [-c number | -n number] [file...]. It copies the
+// first number lines (default 10), or bytes with -c, of each input; with
+// several, each is preceded by "==> file <==" (a blank line before all but
+// the first). The obsolescent -number form means -n number. Standard
+// input is read only as far as needed, so `yes | head -n 1` ends.
 func Run(env *fsx.Env) int {
 	args := env.Args
 	if len(args) > 0 {
 		args = args[1:]
 	}
-	n := 10
+	n, bytesMode := int64(10), false
 	var paths []string
 	for i := 0; i < len(args); i++ {
 		a := args[i]
-		if a == "-n" {
-			i++
-			if i >= len(args) {
-				fmt.Fprintln(env.Stderr, "head: option requires an argument: -n")
-				return exit.Usage
-			}
-			v, err := strconv.Atoi(args[i])
-			if err != nil || v < 0 {
-				fmt.Fprintf(env.Stderr, "head: invalid line count: %q\n", args[i])
-				return exit.Usage
-			}
-			n = v
+		if a == "--" {
+			paths = append(paths, args[i+1:]...)
+			break
+		}
+		if len(a) < 2 || a[0] != '-' {
+			paths = append(paths, a)
 			continue
 		}
-		paths = append(paths, a)
+		opt, val := a[1], a[2:]
+		if opt >= '0' && opt <= '9' { // -number
+			opt, val = 'n', a[1:]
+		}
+		if opt != 'n' && opt != 'c' {
+			fmt.Fprintf(env.Stderr, "head: invalid option -- '%c'\n", opt)
+			return exit.Usage
+		}
+		if val == "" {
+			i++
+			if i >= len(args) {
+				fmt.Fprintf(env.Stderr, "head: option requires an argument -- '%c'\n", opt)
+				return exit.Usage
+			}
+			val = args[i]
+		}
+		v, err := strconv.ParseInt(val, 10, 64)
+		if err != nil || v < 0 {
+			fmt.Fprintf(env.Stderr, "head: invalid number: %q\n", val)
+			return exit.Usage
+		}
+		n, bytesMode = v, opt == 'c'
 	}
 	if len(paths) == 0 {
 		paths = []string{fsx.StdinOperand}
 	}
 	rc := exit.Ok
-	for i, p := range paths {
-		data, err := env.ReadOperand(p)
-		if err != nil {
-			fmt.Fprintf(env.Stderr, "head: %s: %s\n", p, prettyErr(err))
-			rc = exit.Fail
-			continue
+	first := true
+	for _, p := range paths {
+		var r io.Reader
+		if p == fsx.StdinOperand {
+			r = env.Stdin
+			if r == nil {
+				r = bytes.NewReader(nil)
+			}
+		} else {
+			data, err := env.FS.ReadFile(fsx.Resolve(env.Cwd, p))
+			if err != nil {
+				fmt.Fprintf(env.Stderr, "head: %s: %s\n", p, prettyErr(err))
+				rc = exit.Fail
+				continue
+			}
+			r = bytes.NewReader(data)
 		}
 		if len(paths) > 1 {
-			if i > 0 {
+			if !first {
 				fmt.Fprintln(env.Stdout)
 			}
 			fmt.Fprintf(env.Stdout, "==> %s <==\n", p)
 		}
-		printFirstN(env.Stdout, data, n)
+		first = false
+		if err := copyHead(env.Stdout, r, n, bytesMode); err != nil {
+			fmt.Fprintf(env.Stderr, "head: %s: %v\n", p, err)
+			rc = exit.Fail
+		}
 	}
 	return rc
 }
 
-// printFirstN writes up to n newline-delimited lines from data, preserving
-// the trailing newline (or its absence) on the last printed line.
-func printFirstN(w writer, data []byte, n int) {
-	if n == 0 {
-		return
+// copyHead copies the first n lines (or bytes) of r to w, reading no
+// further than it needs to.
+func copyHead(w io.Writer, r io.Reader, n int64, bytesMode bool) error {
+	if bytesMode {
+		_, err := io.Copy(w, io.LimitReader(r, n))
+		return err
 	}
-	count := 0
-	text := string(data)
-	for text != "" && count < n {
-		i := strings.IndexByte(text, '\n')
-		if i < 0 {
-			fmt.Fprint(w, text)
-			return
+	br := bufio.NewReader(r)
+	for ; n > 0; n-- {
+		line, err := br.ReadSlice('\n')
+		if len(line) > 0 {
+			if _, werr := w.Write(line); werr != nil {
+				return werr
+			}
 		}
-		fmt.Fprintln(w, text[:i])
-		text = text[i+1:]
-		count++
+		if errors.Is(err, bufio.ErrBufferFull) {
+			n++ // the same line goes on
+			continue
+		}
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil
+			}
+			return err
+		}
 	}
+	return nil
 }
-
-// writer is the minimal io.Writer-shaped interface printFirstN needs. Kept
-// local so the test file does not import io for a single type.
-type writer interface{ Write([]byte) (int, error) }
 
 func prettyErr(err error) string {
 	switch {

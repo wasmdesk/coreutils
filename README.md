@@ -64,8 +64,8 @@ base image, where `sh` runs these tools as separate processes.
 | `cp`   | `-r`/`-R` (recursive)               |
 | `mv`   | (no flags)                          |
 | `touch`| (no flags; updates mtime is a no-op — see "Limitations") |
-| `head` | `-n N` (default 10)                 |
-| `tail` | `-n N` (default 10)                 |
+| `head` | `-n N` (default 10), `-c N`, obsolescent `-N`; stops reading stdin once done (`yes \| head -1` ends) |
+| `tail` | `-n [+-]N` (default 10), `-c [+-]N` (`+` counts from the start, origin 1), obsolescent `-N`/`+N`, `-f` (polls each second, prints what is appended, notes a truncated file; ignored on stdin) |
 | `wc`   | `-l` / `-w` / `-c`                  |
 | `grep` | `-i`, `-v`, `-n`, `-E` (regex via go-ruby-regexp — see "Limitations"), `-F`, `-r`/`-R`, `-l`, `-c`, `-o`, `-q`, `-w`, `-H`/`-h`, combined short flags (`-rn`) |
 | `find` | POSIX expressions: `-name`, `-iname`, `-type f/d`, `-size n[cbwkMG]`, `-mtime n`, `-newer FILE`, `-prune`, `-print`, `!`/`-not`, `-a`, `-o`, `( )`, with `+n`/`-n`; GNU `-maxdepth`/`-mindepth`; paths printed from the operand as given (`find .` → `./x`); walk bounded at 256 levels. `-exec` not yet |
