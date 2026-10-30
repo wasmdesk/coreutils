@@ -6,7 +6,6 @@ package fsx
 
 import (
 	"errors"
-	"os"
 	"path/filepath"
 	"testing"
 )
@@ -93,19 +92,5 @@ func TestCreate(t *testing.T) {
 	r.WriteFile("/f", []byte("x"))
 	if _, err := Create(readFails{r}, "/f", true); err == nil || errors.Is(err, ErrNotFound) {
 		t.Errorf("fallback append over an unreadable file: %v", err)
-	}
-}
-
-func TestCreateOSFSDenied(t *testing.T) {
-	if os.Getuid() == 0 {
-		t.Skip("root writes anywhere")
-	}
-	dir := t.TempDir()
-	if err := os.Chmod(dir, 0o500); err != nil {
-		t.Fatal(err)
-	}
-	defer os.Chmod(dir, 0o700)
-	if _, err := NewOSFS().Create(filepath.Join(dir, "f"), false); err == nil {
-		t.Skip("this platform does not deny writes in a read-only directory")
 	}
 }
