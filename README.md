@@ -77,7 +77,7 @@ base image, where `sh` runs these tools as separate processes.
 | `sort`     | POSIX: `-k field[.char][bdfinr][,field[.char][bdfinr]]` (repeatable), `-t CHAR`, `-b -d -f -i -n -r -u`, `-c`, `-o FILE` (may name an input); exact numeric compare (no float rounding); ties broken by the whole line (not under `-u`); C-locale bytes; checked against the system sort in CI |
 | `uniq`     | `-c` count, `-d` only dups, `-u` only singletons    |
 | `cut`      | `-f LIST -d DELIM`, `-c LIST`, `-b LIST` (`N`,`N-M`,`N-`,`-M`,`N,M,...`) |
-| `tr`       | `SET1 [SET2]`, `-d` delete, `-s` squeeze (ranges, `\n \t \\`) |
+| `tr`       | POSIX: `-c`/`-C`, `-d`, `-s`, `-ds`; ranges, `[:class:]` (12 classes; `[:lower:]`↔`[:upper:]` case mapping), `[=c=]`, `[x*n]`/`[x*]`, escapes `\\ \a \b \f \n \r \t \v \ooo`; streams its input; checked against the system `tr` |
 | `paste`    | `-d DELIM` (default tab)                            |
 | `nl`       | (no flags; `%6d\t%s\n` format)                      |
 | `tac`      | (no flags; reverse cat)                             |
@@ -159,8 +159,8 @@ in-browser builtin automatically, with no terminal-side code change. See
   safety -- a real `yes` would spin forever).
 - `cut -b` is treated as `-c` (ASCII-only). Multi-byte byte addressing lands
   with the utf8 SIMD work.
-- `tr` is byte-oriented (multi-byte runes pass through verbatim, no class
-  syntax like `[:alpha:]`).
+- `tr` is byte-oriented, in the POSIX locale (classes are ASCII; multi-byte
+  runes are bytes). A reversed range is an error, as in GNU tr.
 - `env` is print-only -- no `KEY=VAL CMD` execution (no subprocess support).
 - `expr` accepts only the binary `A OP B` form; no parentheses.
 - `printf` supports `%s %d %x %o %c %%` and escapes `\n \t \\` only.
