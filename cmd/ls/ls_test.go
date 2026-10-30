@@ -121,13 +121,47 @@ func TestLsPrettyErr(t *testing.T) {
 	}
 }
 
+// POSIX ls: a FILE operand is listed by its name, as given (compose's
+// `ls /ready` probe printed "not a directory").
 func TestLsOnFile(t *testing.T) {
-	e, _, errb, m := env(t, "/f")
-	_ = m.WriteFile("/f", nil)
+	e, out, errb, m := env(t, "/ready")
+	_ = m.WriteFile("/ready", []byte("ok"))
+	if rc := Run(e); rc != exit.Ok || out.String() != "/ready\n" || errb.Len() != 0 {
+		t.Errorf("rc %d out %q err %q", rc, out.String(), errb.String())
+	}
+	e, out, _, m = env(t, "-l", "f")
+	_ = m.WriteFile("/f", []byte("abc"))
+	if rc := Run(e); rc != exit.Ok || out.String() != "-        3 f\n" {
+		t.Errorf("-l: rc %d out %q", rc, out.String())
+	}
+}
+
+// Files first (sorted), then directories with headers; a missing operand
+// is reported and the rest still listed.
+func TestLsMixedOperands(t *testing.T) {
+	e, out, errb, m := env(t, "/d", "/z", "/nope", "/a")
+	_ = m.Mkdir("/d")
+	_ = m.WriteFile("/d/x", nil)
+	_ = m.WriteFile("/z", nil)
+	_ = m.WriteFile("/a", nil)
 	if rc := Run(e); rc != exit.Fail {
 		t.Errorf("rc = %d", rc)
 	}
-	if !strings.Contains(errb.String(), "not a directory") {
-		t.Errorf("stderr = %q", errb.String())
+	if out.String() != "/a\n/z\n\n/d:\nx\n" || !strings.Contains(errb.String(), "/nope: no such file") {
+		t.Errorf("out %q err %q", out.String(), errb.String())
+	}
+}
+
+// unlistable stats directories but cannot list them.
+type unlistable struct{ fsx.FS }
+
+func (unlistable) ReadDir(string) ([]fsx.FileInfo, error) { return nil, errors.New("eacces") }
+
+func TestLsUnlistable(t *testing.T) {
+	e, out, errb, m := env(t, "/d")
+	_ = m.Mkdir("/d")
+	e.FS = unlistable{m}
+	if rc := Run(e); rc != exit.Fail || out.Len() != 0 || !strings.Contains(errb.String(), "/d: eacces") {
+		t.Errorf("rc %d out %q err %q", rc, out.String(), errb.String())
 	}
 }

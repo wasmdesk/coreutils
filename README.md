@@ -57,7 +57,7 @@ base image, where `sh` runs these tools as separate processes.
 | `pwd`  | (no flags)                          |
 | `echo` | (no flags; v0 has no `-e`)          |
 | `cat`  | `-n` (number lines)                 |
-| `ls`   | `-l` (long), `-a` (accepted)        |
+| `ls`   | `-l` (long), `-a` (accepted); a FILE operand is listed by name, FILEs first then directories (POSIX) |
 | `mkdir`| `-p` (create parents)               |
 | `rmdir`| (no flags)                          |
 | `rm`   | `-r`/`-R` (recursive), `-f` (force) |

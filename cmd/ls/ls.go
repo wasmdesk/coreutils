@@ -7,6 +7,7 @@ package ls
 import (
 	"errors"
 	"fmt"
+	"sort"
 
 	"github.com/wasmdesk/coreutils/pkg/exit"
 	"github.com/wasmdesk/coreutils/pkg/fsx"
@@ -39,35 +40,60 @@ func Run(env *fsx.Env) int {
 	if len(paths) == 0 {
 		paths = []string{env.Cwd}
 	}
+	// POSIX ls: an operand that is not a directory is listed by its name
+	// (as given); those come first, then each directory's entries, under
+	// a "dir:" header when there is more than one operand.
 	rc := exit.Ok
-	for i, p := range paths {
-		abs := fsx.Resolve(env.Cwd, p)
-		entries, err := env.FS.ReadDir(abs)
+	var files []fsx.FileInfo
+	var dirs []string
+	for _, p := range paths {
+		st, err := env.FS.Stat(fsx.Resolve(env.Cwd, p))
+		if err != nil {
+			fmt.Fprintf(env.Stderr, "ls: %s: %s\n", p, prettyErr(err))
+			rc = exit.Fail
+			continue
+		}
+		if st.IsDir {
+			dirs = append(dirs, p)
+			continue
+		}
+		st.Name = p
+		files = append(files, st)
+	}
+	sort.SliceStable(files, func(i, j int) bool { return files[i].Name < files[j].Name })
+	sort.Strings(dirs)
+	show := func(e fsx.FileInfo) {
+		switch {
+		case long:
+			kind := "-"
+			if e.IsDir {
+				kind = "d"
+			}
+			fmt.Fprintf(env.Stdout, "%s %8d %s\n", kind, e.Size, e.Name)
+		case e.IsDir:
+			fmt.Fprintf(env.Stdout, "%s/\n", e.Name)
+		default:
+			fmt.Fprintln(env.Stdout, e.Name)
+		}
+	}
+	for _, f := range files {
+		show(f)
+	}
+	for i, p := range dirs {
+		entries, err := env.FS.ReadDir(fsx.Resolve(env.Cwd, p))
 		if err != nil {
 			fmt.Fprintf(env.Stderr, "ls: %s: %s\n", p, prettyErr(err))
 			rc = exit.Fail
 			continue
 		}
 		if len(paths) > 1 {
-			if i > 0 {
+			if i > 0 || len(files) > 0 {
 				fmt.Fprintln(env.Stdout)
 			}
 			fmt.Fprintf(env.Stdout, "%s:\n", p)
 		}
 		for _, e := range entries {
-			if long {
-				kind := "-"
-				if e.IsDir {
-					kind = "d"
-				}
-				fmt.Fprintf(env.Stdout, "%s %8d %s\n", kind, e.Size, e.Name)
-				continue
-			}
-			if e.IsDir {
-				fmt.Fprintf(env.Stdout, "%s/\n", e.Name)
-				continue
-			}
-			fmt.Fprintln(env.Stdout, e.Name)
+			show(e)
 		}
 	}
 	return rc
