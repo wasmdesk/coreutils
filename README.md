@@ -93,7 +93,7 @@ base image, where `sh` runs these tools as separate processes.
 | ---------- | --------------------------------------------------- |
 | `basename` | `PATH [SUFFIX]`                                     |
 | `dirname`  | (no flags; one-or-more PATHs)                       |
-| `date`     | `-d RFC3339` (default: now in UTC RFC1123)          |
+| `date`     | POSIX `[-u] [+FORMAT]` with every strftime conversion (and GNU `%N %P %k %l %:z`, flags `- _ 0 ^ # +`, widths); default `%a %b %e %H:%M:%S %Z %Y` in the local zone (`TZ`); `-d @SECS`, RFC 3339 or `YYYY-MM-DD[ HH:MM[:SS]]` (shared formatter: `pkg/strftime`, checked against the system `date`) |
 | `seq`      | `N` / `A B` / `A S B` (integer)                     |
 | `sleep`    | `SECONDS...` (integer or float, sums multiple)      |
 | `true`     | exit 0                                              |
