@@ -157,7 +157,7 @@ func TestSortPrettyErr(t *testing.T) {
 
 // dedup on empty slice.
 func TestSortDedupEmpty(t *testing.T) {
-	if got := dedup(nil); got != nil {
+	if got := dedup(nil, strings.Compare); got != nil {
 		t.Errorf("got %v", got)
 	}
 }
