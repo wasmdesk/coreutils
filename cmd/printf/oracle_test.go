@@ -43,11 +43,12 @@ var oracleCases = [][]string{
 	{"%f|%F|%e|%G|%5.1f|%-6f|%+f|% f|\n", "inf", "-inf", "nan", "INF", "inf", "inf", "inf", "inf"},
 	{"%d\n", "99999999999999999999"},
 	{"%d %d %x\n", "0XFF", "-0x10", "0Xa"},
-	{"%f %.0f %d\n", "'A", "2.5", "'"},
+	{"%f %.0f\n", "'A", "2.5"},
 	{"\\a\\b\\f\\r\\v|\\\"|\\101\\1012|\n"},
 	// Not here, as GNU and BSD differ (ours: flags_test.go): %c of "" (GNU
 	// writes a NUL), %q (a GNU extension), %n$ (not in GNU's utility),
-	// %a's normalisation (glibc: 0xcp-3), and 1e500 (GNU: long double).
+	// %a's normalisation (glibc: 0xcp-3), 1e500 (GNU: long double), and a
+	// lone ' (GNU: an error; BSD and ours: 0).
 }
 
 func systemPrintf(t *testing.T, args []string) (string, bool, bool) {
