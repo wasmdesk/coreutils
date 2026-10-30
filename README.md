@@ -74,7 +74,7 @@ base image, where `sh` runs these tools as separate processes.
 
 | tool       | flags supported                                     |
 | ---------- | --------------------------------------------------- |
-| `sort`     | `-r` reverse, `-n` numeric, `-u` unique             |
+| `sort`     | POSIX: `-k field[.char][bdfinr][,field[.char][bdfinr]]` (repeatable), `-t CHAR`, `-b -d -f -i -n -r -u`, `-c`, `-o FILE` (may name an input); exact numeric compare (no float rounding); ties broken by the whole line (not under `-u`); C-locale bytes; checked against the system sort in CI |
 | `uniq`     | `-c` count, `-d` only dups, `-u` only singletons    |
 | `cut`      | `-f LIST -d DELIM`, `-c LIST`, `-b LIST` (`N`,`N-M`,`N-`,`-M`,`N,M,...`) |
 | `tr`       | `SET1 [SET2]`, `-d` delete, `-s` squeeze (ranges, `\n \t \\`) |
