@@ -31,12 +31,12 @@ func TestPrintfMore(t *testing.T) {
 		{[]string{"%d\n", "0x"}, "0\n", false},
 		{[]string{"%f\n", "'"}, "0.000000\n", true},
 		{[]string{"%f\n", "x"}, "0.000000\n", false},
-		{[]string{"%b|\n", "\\0\\c"}, "\x00", true},       // GNU: \0 is a NUL byte
-		{[]string{"%b|\n", "a\\q\\"}, "a\\q\\|\n", true},  // unknown and trailing backslash kept
+		{[]string{"%b|\n", "\\0\\c"}, "\x00", true},         // GNU: \0 is a NUL byte
+		{[]string{"%b|\n", "a\\q\\"}, "a\\q\\|\n", true},    // unknown and trailing backslash kept
 		{[]string{"%b%s\n", "\\08", "|"}, "\x008|\n", true}, // \0ddd: 8 is not octal
-		{[]string{"%3$s %1$s|\n", "a", "b"}, " a|\n", true},  // a missing numbered argument is empty
+		{[]string{"%3$s %1$s|\n", "a", "b"}, " a|\n", true}, // a missing numbered argument is empty
 		{[]string{"x\\"}, "x\\", true},
-		{[]string{"%s$|%d\n", "a", "0"}, "a$|0\n", true}, // a $ after a non-number is text
+		{[]string{"%s$|%d\n", "a", "0"}, "a$|0\n", true},                                    // a $ after a non-number is text
 		{[]string{"%ld %lld %hhd %zd %jd\n", "1", "2", "3", "4", "5"}, "1 2 3 4 5\n", true}, // length modifiers: ignored (BSD refuses them)
 		{[]string{"%e|%A\n", "-0", "inf"}, "-0.000000e+00|INF\n", true},
 		{[]string{"%010.2f|% 08d|%-+5d|\n", "-3.14159", "42", "7"}, "-000003.14| 0000042|+7   |\n", true},
