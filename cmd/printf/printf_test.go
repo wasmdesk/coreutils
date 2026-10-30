@@ -77,7 +77,7 @@ func TestPrintfBadInt(t *testing.T) {
 	if rc := Run(e); rc != exit.Fail {
 		t.Errorf("rc = %d", rc)
 	}
-	if !strings.Contains(errb.String(), "invalid number") {
+	if !strings.Contains(errb.String(), "expected a numeric value") {
 		t.Errorf("stderr = %q", errb.String())
 	}
 }
@@ -85,7 +85,7 @@ func TestPrintfBadInt(t *testing.T) {
 func TestPrintfBadHex(t *testing.T) {
 	e, _, errb := newEnv("%x\\n", "x")
 	_ = Run(e)
-	if !strings.Contains(errb.String(), "invalid number") {
+	if !strings.Contains(errb.String(), "expected a numeric value") {
 		t.Errorf("stderr = %q", errb.String())
 	}
 }
@@ -93,7 +93,7 @@ func TestPrintfBadHex(t *testing.T) {
 func TestPrintfBadOct(t *testing.T) {
 	e, _, errb := newEnv("%o\\n", "x")
 	_ = Run(e)
-	if !strings.Contains(errb.String(), "invalid number") {
+	if !strings.Contains(errb.String(), "expected a numeric value") {
 		t.Errorf("stderr = %q", errb.String())
 	}
 }
@@ -103,15 +103,17 @@ func TestPrintfUnsupportedConv(t *testing.T) {
 	if rc := Run(e); rc != exit.Fail {
 		t.Errorf("rc = %d", rc)
 	}
-	if !strings.Contains(errb.String(), "unsupported conversion") {
+	if !strings.Contains(errb.String(), "invalid conversion") {
 		t.Errorf("stderr = %q", errb.String())
 	}
 }
 
 func TestPrintfTrailingPercent(t *testing.T) {
 	e, out, _ := newEnv("done%")
-	_ = Run(e)
-	if got := out.String(); got != "done%" {
+	if rc := Run(e); rc != exit.Fail {
+		t.Errorf("rc %d", rc)
+	}
+	if got := out.String(); got != "done" {
 		t.Errorf("got %q", got)
 	}
 }
