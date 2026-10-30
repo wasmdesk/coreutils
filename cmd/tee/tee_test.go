@@ -88,3 +88,81 @@ func TestTeeErrors(t *testing.T) {
 		t.Error("empty argv")
 	}
 }
+
+// watcher is standard input that, before its second chunk, looks at what
+// the FILE already holds: tee writes as the data comes.
+type watcher struct {
+	m    *fsx.MemFS
+	n    int
+	seen string
+}
+
+func (w *watcher) Read(p []byte) (int, error) {
+	w.n++
+	switch w.n {
+	case 1:
+		return copy(p, "first\n"), nil
+	case 2:
+		b, _ := w.m.ReadFile("/log")
+		w.seen = string(b)
+		return copy(p, "second\n"), nil
+	}
+	return 0, io.EOF
+}
+
+func TestTeeStreams(t *testing.T) {
+	e, _, _, m := env(nil, "/log")
+	w := &watcher{m: m}
+	e.Stdin = w
+	if Run(e) != exit.Ok {
+		t.Fatal("tee failed")
+	}
+	if w.seen != "first\n" {
+		t.Errorf("the file held %q while tee ran", w.seen)
+	}
+	if b, _ := m.ReadFile("/log"); string(b) != "first\nsecond\n" {
+		t.Errorf("log = %q", b)
+	}
+}
+
+// badFiles is a filesystem whose streamed files fail to write or close.
+type badFiles struct {
+	*fsx.MemFS
+	writeErr, closeErr error
+}
+
+func (b badFiles) Create(string, bool) (io.WriteCloser, error) {
+	return badFile{b.writeErr, b.closeErr}, nil
+}
+
+type badFile struct{ writeErr, closeErr error }
+
+func (f badFile) Write(p []byte) (int, error) {
+	if f.writeErr != nil {
+		return 0, f.writeErr
+	}
+	return len(p), nil
+}
+func (f badFile) Close() error { return f.closeErr }
+
+func TestTeeFileErrors(t *testing.T) {
+	// A FILE that fails is reported once and dropped; stdout goes on.
+	e, out, errb, m := env(strings.NewReader("abc"), "/f")
+	e.FS = badFiles{MemFS: m, writeErr: errors.New("ENOSPC")}
+	if Run(e) != exit.Fail || out.String() != "abc" || strings.Count(errb.String(), "ENOSPC") != 1 {
+		t.Errorf("write error: out %q err %q", out.String(), errb.String())
+	}
+	e, _, errb, m = env(strings.NewReader("abc"), "/f")
+	e.FS = badFiles{MemFS: m, closeErr: errors.New("EIO")}
+	if Run(e) != exit.Fail || !strings.Contains(errb.String(), "/f: EIO") {
+		t.Errorf("close error: %q", errb.String())
+	}
+	// A FILE that cannot be opened does not stop the others.
+	e, _, errb, m = env(strings.NewReader("x"), "/nodir/f", "/ok")
+	if Run(e) != exit.Fail || !strings.Contains(errb.String(), "/nodir/f") {
+		t.Errorf("open error: %q", errb.String())
+	}
+	if b, _ := m.ReadFile("/ok"); string(b) != "x" {
+		t.Errorf("the other FILE: %q", b)
+	}
+}
