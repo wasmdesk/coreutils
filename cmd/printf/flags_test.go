@@ -39,6 +39,13 @@ func TestPrintfMore(t *testing.T) {
 		{[]string{"%s$|%d\n", "a", "0"}, "a$|0\n", true},                                    // a $ after a non-number is text
 		{[]string{"%ld %lld %hhd %zd %jd\n", "1", "2", "3", "4", "5"}, "1 2 3 4 5\n", true}, // length modifiers: ignored (BSD refuses them)
 		{[]string{"%e|%A\n", "-0", "inf"}, "-0.000000e+00|INF\n", true},
+		// Where GNU and BSD differ: ours follows BSD (macOS) here.
+		{[]string{"%c%c%c\n", "hello", "", "x"}, "hx\n", true},
+		{[]string{"%q|\n"}, "", false},
+		{[]string{"%2$s %1$s\n", "world", "hello"}, "hello world\n", true},
+		{[]string{"%a|%A|%a|%.2a|%12a|%-12a|%012a|\n", "1.5", "-0.25", "1", "1", "2", "2", "3"},
+			"0x1.8p+0|-0X1P-2|0x1p+0|0x1.00p+0|      0x1p+1|0x1p+1      |0x00001.8p+1|\n", true},
+		{[]string{"%f\n", "1e500"}, "inf\n", false},
 		{[]string{"%010.2f|% 08d|%-+5d|\n", "-3.14159", "42", "7"}, "-000003.14| 0000042|+7   |\n", true},
 	} {
 		var out, errb bytes.Buffer
