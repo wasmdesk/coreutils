@@ -85,7 +85,7 @@ base image, where `sh` runs these tools as separate processes.
 | `fold`     | `-w N` (default 80)                                 |
 | `expand`   | `-t N` (default 8) — tabs to spaces                 |
 | `unexpand` | `-t N` (default 8) — leading spaces to tabs         |
-| `printf`   | `%s %d %x %o %c %%`, escapes `\n \t \\`             |
+| `printf`   | POSIX: `d i o u x X f F e E g G a A c s b %`, flags `- + space # 0`, width/precision (numbers or `*`), `%n$`, escapes `\\ \a \b \f \n \r \t \v \ddd`, `%b` with `\0ddd` and `\c`; C constants (`0x1f`, `010`, `'A`); format reused while arguments remain; checked against the system `printf` |
 
 ### Utility (v0.3 -- 10)
 
@@ -163,7 +163,7 @@ in-browser builtin automatically, with no terminal-side code change. See
   runes are bytes). A reversed range is an error, as in GNU tr.
 - `env` is print-only -- no `KEY=VAL CMD` execution (no subprocess support).
 - `expr` accepts only the binary `A OP B` form; no parentheses.
-- `printf` supports `%s %d %x %o %c %%` and escapes `\n \t \\` only.
+- `printf`: widths and precisions are capped at 65536; length modifiers (`%ld`) are accepted and ignored; an invalid conversion stops the output with status 1 (as GNU and BSD do).
 - `sleep` uses a swappable function seam (`sleep.SleepFn`); the in-browser
   builtin needs a host-aware implementation.
 - `grep` defaults to **substring** match (POSIX-fixed). Pass `-E` to switch
