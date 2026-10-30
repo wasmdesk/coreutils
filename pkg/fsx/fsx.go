@@ -29,6 +29,7 @@ import (
 	"io"
 	"sort"
 	"strings"
+	"time"
 )
 
 // FileInfo describes one entry. Mirrors os.FileInfo's load-bearing fields
@@ -38,6 +39,10 @@ type FileInfo struct {
 	Name  string // basename
 	Size  int64  // length of file content; 0 for directories
 	IsDir bool
+	// ModTime is the last data modification; the zero time when the
+	// backend does not know it (find -mtime/-newer then treat it as
+	// the epoch's start).
+	ModTime time.Time
 }
 
 // FS is the storage contract every tool talks to. Paths are POSIX-style

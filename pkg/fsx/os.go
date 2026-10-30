@@ -49,7 +49,7 @@ func (OSFS) Stat(p string) (FileInfo, error) {
 	if err != nil {
 		return FileInfo{}, translate(err)
 	}
-	return FileInfo{Name: st.Name(), Size: st.Size(), IsDir: st.IsDir()}, nil
+	return FileInfo{Name: st.Name(), Size: st.Size(), IsDir: st.IsDir(), ModTime: st.ModTime()}, nil
 }
 
 // ReadFile implements FS.
@@ -100,11 +100,11 @@ func (OSFS) ReadDir(dir string) ([]FileInfo, error) {
 	out := make([]FileInfo, 0, len(entries))
 	for _, e := range entries {
 		info, ierr := e.Info()
-		size := int64(0)
+		fi := FileInfo{Name: e.Name(), IsDir: e.IsDir()}
 		if ierr == nil {
-			size = info.Size()
+			fi.Size, fi.ModTime = info.Size(), info.ModTime()
 		}
-		out = append(out, FileInfo{Name: e.Name(), Size: size, IsDir: e.IsDir()})
+		out = append(out, fi)
 	}
 	sortByName(out)
 	return out, nil
