@@ -69,10 +69,10 @@ func TestTrSqueeze(t *testing.T) {
 }
 
 func TestTrDeleteSqueeze(t *testing.T) {
-	e, out, _ := newEnv("aaabbbcccd", "-d", "-s", "ac")
+	// POSIX: -ds takes both strings; delete string1, squeeze string2.
+	e, out, _ := newEnv("aaabbbcccd", "-d", "-s", "ac", "b")
 	_ = Run(e)
-	// After delete of a,c: "bbbd". Squeeze of {a,c} doesn't affect bbbd.
-	if got := out.String(); got != "bbbd" {
+	if got := out.String(); got != "bd" {
 		t.Errorf("got %q", got)
 	}
 }
@@ -104,12 +104,11 @@ func TestTrEscape(t *testing.T) {
 	}
 }
 
-// Reversed range "z-a" is treated as a literal "z", "-", "a" sequence.
+// A reversed range "z-a" is refused, as GNU tr does (POSIX: unspecified).
 func TestTrReversedRange(t *testing.T) {
-	e, out, _ := newEnv("z-a", "z-a", "XYZ")
-	_ = Run(e)
-	if got := out.String(); got != "XYZ" {
-		t.Errorf("got %q", got)
+	e, out, errb := newEnv("z-a", "z-a", "XYZ")
+	if rc := Run(e); rc != exit.Usage || out.Len() != 0 || !strings.Contains(errb.String(), "reverse order") {
+		t.Errorf("rc %d out %q err %q", rc, out.String(), errb.String())
 	}
 }
 
@@ -118,7 +117,7 @@ func TestTrDeleteBadArity(t *testing.T) {
 	if rc := Run(e); rc != exit.Usage {
 		t.Errorf("rc = %d", rc)
 	}
-	if !strings.Contains(errb.String(), "-d takes exactly one") {
+	if !strings.Contains(errb.String(), "expected 1 operand") {
 		t.Errorf("stderr = %q", errb.String())
 	}
 }
@@ -128,7 +127,7 @@ func TestTrSqueezeBadArity(t *testing.T) {
 	if rc := Run(e); rc != exit.Usage {
 		t.Errorf("rc = %d", rc)
 	}
-	if !strings.Contains(errb.String(), "one or two SET") {
+	if !strings.Contains(errb.String(), "operand") {
 		t.Errorf("stderr = %q", errb.String())
 	}
 }
@@ -139,7 +138,7 @@ func TestTrSqueezeTooManyOperands(t *testing.T) {
 	if rc := Run(e); rc != exit.Usage {
 		t.Errorf("rc = %d", rc)
 	}
-	if !strings.Contains(errb.String(), "one or two SET") {
+	if !strings.Contains(errb.String(), "got 3") {
 		t.Errorf("stderr = %q", errb.String())
 	}
 }
@@ -149,7 +148,7 @@ func TestTrTranslateBadArity(t *testing.T) {
 	if rc := Run(e); rc != exit.Usage {
 		t.Errorf("rc = %d", rc)
 	}
-	if !strings.Contains(errb.String(), "two SETs") {
+	if !strings.Contains(errb.String(), "expected 2 operand(s), got 1") {
 		t.Errorf("stderr = %q", errb.String())
 	}
 }
