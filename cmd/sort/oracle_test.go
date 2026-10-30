@@ -6,12 +6,15 @@ package sort
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"github.com/wasmdesk/coreutils/pkg/fsx"
@@ -105,6 +108,7 @@ func TestSortOracle(t *testing.T) {
 		os.WriteFile(filepath.Join(dir, name), []byte(data), 0o644)
 		m.WriteFile("/"+name, []byte(data))
 	}
+	golden := map[string]string{}
 	for _, args := range oracleCases {
 		cmd := exec.Command(ref, args...)
 		cmd.Dir = dir
@@ -113,10 +117,57 @@ func TestSortOracle(t *testing.T) {
 		if err != nil {
 			t.Fatalf("%v: %v", args, err)
 		}
+		golden[strings.Join(args, " ")] = string(want)
 		var out, errb bytes.Buffer
 		Run(&fsx.Env{Args: append([]string{"sort"}, args...), Stdout: &out, Stderr: &errb, FS: m, Cwd: "/"})
 		if out.String() != string(want) {
 			t.Errorf("sort %q:\n got %q\nwant %q (%s) %s", args, out.String(), want, ref, errb.String())
+		}
+	}
+	// The committed golden file must be what this system sort says, so
+	// that TestSortGolden (which runs everywhere) checks the reference.
+	if os.Getenv("SORT_GOLDEN_WRITE") != "" {
+		b, _ := json.MarshalIndent(golden, "", "  ")
+		if err := os.WriteFile(goldenPath, append(b, '\n'), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if have := readGolden(t); !maps.Equal(have, golden) {
+		t.Errorf("%s differs from %s's output: regenerate with SORT_GOLDEN_WRITE=1", goldenPath, ref)
+	}
+}
+
+const goldenPath = "testdata/oracle.golden"
+
+func readGolden(t *testing.T) map[string]string {
+	t.Helper()
+	b, err := os.ReadFile(goldenPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var g map[string]string
+	if err := json.Unmarshal(b, &g); err != nil {
+		t.Fatal(err)
+	}
+	return g
+}
+
+// TestSortGolden checks the system sort's recorded answers on every
+// platform, including those without a sort to ask (Windows).
+func TestSortGolden(t *testing.T) {
+	g := readGolden(t)
+	m := fsx.NewMemFS()
+	for name, data := range inputs {
+		m.WriteFile("/"+name, []byte(data))
+	}
+	if len(g) != len(oracleCases) {
+		t.Fatalf("%d golden answers for %d cases", len(g), len(oracleCases))
+	}
+	for _, args := range oracleCases {
+		var out bytes.Buffer
+		Run(&fsx.Env{Args: append([]string{"sort"}, args...), Stdout: &out, Stderr: &out, FS: m, Cwd: "/"})
+		if want := g[strings.Join(args, " ")]; out.String() != want {
+			t.Errorf("sort %q:\n got %q\nwant %q", args, out.String(), want)
 		}
 	}
 }
