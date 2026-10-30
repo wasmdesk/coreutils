@@ -26,7 +26,7 @@ var oracleCases = [][]string{
 	{"%d %d\n", "'A", "\"z"},
 	{"%u %x\n", "-1", "-1"},
 	{"%s|%10s|%-10s|%.2s|\n", "abc", "abc", "abc", "abc"},
-	{"%c%c%c\n", "hello", "", "x"},
+	{"%c%c\n", "hello", "x"},
 	{"%f|%.2f|%10.3f|%-10.1f|%e|%E\n", "3.14159", "3.14159", "3.14159", "3.14159", "1234.5", "0.000123"},
 	{"%g|%g|%g|%G|%.3g|%#g\n", "100000", "1000000", "0.0001", "1e-10", "3.14159", "2"},
 	{"%s-%s\n", "a", "b", "c", "d", "e"},
@@ -35,19 +35,19 @@ var oracleCases = [][]string{
 	{"%b", "stop\\chere", "never"},
 	{"a\\tb\\101\\0\\n"},
 	{"%%|\n"},
-	{"%q|\n"},
-	{"%2$s %1$s\n", "world", "hello"},
 	{"%*d|%-*d|%.*f\n", "5", "42", "4", "7", "2", "3.14159"},
 	{"%d\n", "12abc"},
 	{"%d\n", "abc"},
 	{"%i|%5.1s|\n", "-0", "xyz"},
 	{"done%"},
 	{"%f|%F|%e|%G|%5.1f|%-6f|%+f|% f|\n", "inf", "-inf", "nan", "INF", "inf", "inf", "inf", "inf"},
-	{"%a|%A|%a|%.2a|%12a|%-12a|%012a|\n", "1.5", "-0.25", "1", "1", "2", "2", "3"},
 	{"%d\n", "99999999999999999999"},
 	{"%d %d %x\n", "0XFF", "-0x10", "0Xa"},
-	{"%f %f %.0f %d\n", "'A", "1e500", "2.5", "'"},
+	{"%f %.0f %d\n", "'A", "2.5", "'"},
 	{"\\a\\b\\f\\r\\v|\\\"|\\101\\1012|\n"},
+	// Not here, as GNU and BSD differ (ours: flags_test.go): %c of "" (GNU
+	// writes a NUL), %q (a GNU extension), %n$ (not in GNU's utility),
+	// %a's normalisation (glibc: 0xcp-3), and 1e500 (GNU: long double).
 }
 
 func systemPrintf(t *testing.T, args []string) (string, bool, bool) {
