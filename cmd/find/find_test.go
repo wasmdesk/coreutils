@@ -78,7 +78,7 @@ func TestFindNameNoValue(t *testing.T) {
 	if rc := Run(e); rc != exit.Usage {
 		t.Errorf("rc = %d", rc)
 	}
-	if !strings.Contains(errb.String(), "requires an argument") {
+	if !strings.Contains(errb.String(), "missing argument to `-name'") {
 		t.Errorf("stderr = %q", errb.String())
 	}
 }
@@ -94,15 +94,11 @@ func TestFindMissingRoot(t *testing.T) {
 }
 
 func TestFindNamePatternBad(t *testing.T) {
-	// An invalid glob (e.g. "[") should not crash; entries simply do not
-	// match.
-	e, out, _, m := env(t, "/", "-name", "[")
+	// A malformed glob is a usage error, reported before the walk.
+	e, out, errb, m := env(t, "/", "-name", "[")
 	_ = m.WriteFile("/x", nil)
-	if rc := Run(e); rc != exit.Ok {
-		t.Fatalf("rc = %d", rc)
-	}
-	if out.Len() != 0 {
-		t.Errorf("out = %q (want empty)", out.String())
+	if rc := Run(e); rc != exit.Usage || out.Len() != 0 || !strings.Contains(errb.String(), "bad pattern") {
+		t.Errorf("rc %d out %q err %q", rc, out.String(), errb.String())
 	}
 }
 
@@ -133,9 +129,8 @@ func TestFindPrettyErr(t *testing.T) {
 	}
 }
 
-// Failing ReadDir mid-walk: prints an inner error line but the outer walk
-// continues and the top-level rc remains Ok (only failure on the initial
-// Stat propagates upward).
+// Failing ReadDir mid-walk: an error line, the walk goes on, and the exit
+// status is 1 (POSIX: 0 only if every path was traversed).
 type rdFailFS struct {
 	*fsx.MemFS
 	failPath string
@@ -154,10 +149,10 @@ func TestFindInnerReadDirFails(t *testing.T) {
 	f := &rdFailFS{MemFS: m, failPath: "/a/sub"}
 	var out, errb bytes.Buffer
 	e := &fsx.Env{Args: []string{"find", "/"}, Stdout: &out, Stderr: &errb, FS: f, Cwd: "/"}
-	if rc := Run(e); rc != exit.Ok {
+	if rc := Run(e); rc != exit.Fail {
 		t.Fatalf("rc = %d", rc)
 	}
-	if !strings.Contains(errb.String(), "/a/sub") {
+	if !strings.Contains(out.String(), "/a/sub\n") || !strings.Contains(errb.String(), "/a/sub") {
 		t.Errorf("stderr = %q", errb.String())
 	}
 }

@@ -68,7 +68,7 @@ base image, where `sh` runs these tools as separate processes.
 | `tail` | `-n N` (default 10)                 |
 | `wc`   | `-l` / `-w` / `-c`                  |
 | `grep` | `-i`, `-v`, `-n`, `-E` (regex via go-ruby-regexp — see "Limitations"), `-F`, `-r`/`-R`, `-l`, `-c`, `-o`, `-q`, `-w`, `-H`/`-h`, combined short flags (`-rn`) |
-| `find` | `-name GLOB` (shell-style glob)     |
+| `find` | POSIX expressions: `-name`, `-iname`, `-type f/d`, `-size n[cbwkMG]`, `-mtime n`, `-newer FILE`, `-prune`, `-print`, `!`/`-not`, `-a`, `-o`, `( )`, with `+n`/`-n`; GNU `-maxdepth`/`-mindepth`; paths printed from the operand as given (`find .` → `./x`); walk bounded at 256 levels. `-exec` not yet |
 
 ### Text processing (v0.3 -- 12)
 

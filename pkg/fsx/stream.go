@@ -76,6 +76,7 @@ type memWriter struct{ n *memNode }
 
 func (w *memWriter) Write(b []byte) (int, error) {
 	w.n.data = append(w.n.data, b...)
+	w.n.mtime = Now()
 	return len(b), nil
 }
 

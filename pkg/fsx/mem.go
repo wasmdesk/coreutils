@@ -4,7 +4,13 @@
 
 package fsx
 
-import "strings"
+import (
+	"strings"
+	"time"
+)
+
+// Now is MemFS's clock for modification times (a seam for tests).
+var Now = time.Now
 
 // MemFS is the trivial pure-Go FS used by every tool's tests + by callers
 // that want a sandboxed filesystem without touching disk. Keyed by Cleaned
@@ -16,13 +22,28 @@ type MemFS struct {
 type memNode struct {
 	isDir bool
 	data  []byte
+	mtime time.Time
+}
+
+func (n *memNode) info(name string) FileInfo {
+	return FileInfo{Name: name, Size: int64(len(n.data)), IsDir: n.isDir, ModTime: n.mtime}
 }
 
 // NewMemFS returns a fresh MemFS whose only node is the root directory.
 func NewMemFS() *MemFS {
 	m := &MemFS{nodes: make(map[string]*memNode)}
-	m.nodes["/"] = &memNode{isDir: true}
+	m.nodes["/"] = &memNode{isDir: true, mtime: Now()}
 	return m
+}
+
+// Chtimes sets p's modification time (os.Chtimes, for touch and tests).
+func (m *MemFS) Chtimes(p string, mtime time.Time) error {
+	n, ok := m.nodes[Clean(p)]
+	if !ok {
+		return ErrNotFound
+	}
+	n.mtime = mtime
+	return nil
 }
 
 // Stat implements FS.
@@ -32,7 +53,7 @@ func (m *MemFS) Stat(p string) (FileInfo, error) {
 	if !ok {
 		return FileInfo{}, ErrNotFound
 	}
-	return FileInfo{Name: Basename(c), Size: int64(len(n.data)), IsDir: n.isDir}, nil
+	return n.info(Basename(c)), nil
 }
 
 // ReadFile implements FS.
@@ -69,7 +90,7 @@ func (m *MemFS) WriteFile(p string, data []byte) error {
 	}
 	cp := make([]byte, len(data))
 	copy(cp, data)
-	m.nodes[c] = &memNode{isDir: false, data: cp}
+	m.nodes[c] = &memNode{isDir: false, data: cp, mtime: Now()}
 	return nil
 }
 
@@ -90,7 +111,7 @@ func (m *MemFS) Mkdir(p string) error {
 	if !pn.isDir {
 		return ErrNotDir
 	}
-	m.nodes[c] = &memNode{isDir: true}
+	m.nodes[c] = &memNode{isDir: true, mtime: Now()}
 	return nil
 }
 
@@ -117,7 +138,7 @@ func (m *MemFS) MkdirAll(p string) error {
 			}
 			continue
 		}
-		m.nodes[cur] = &memNode{isDir: true}
+		m.nodes[cur] = &memNode{isDir: true, mtime: Now()}
 	}
 	return nil
 }
@@ -148,7 +169,7 @@ func (m *MemFS) ReadDir(dir string) ([]FileInfo, error) {
 		if strings.Contains(rest, "/") {
 			continue
 		}
-		out = append(out, FileInfo{Name: rest, Size: int64(len(node.data)), IsDir: node.isDir})
+		out = append(out, node.info(rest))
 	}
 	sortByName(out)
 	return out, nil
