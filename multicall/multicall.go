@@ -59,6 +59,7 @@ import (
 	"github.com/wasmdesk/coreutils/cmd/wc"
 	"github.com/wasmdesk/coreutils/cmd/which"
 	"github.com/wasmdesk/coreutils/cmd/whoami"
+	"github.com/wasmdesk/coreutils/cmd/xargs"
 	"github.com/wasmdesk/coreutils/cmd/yes"
 	"github.com/wasmdesk/coreutils/pkg/exit"
 	"github.com/wasmdesk/coreutils/pkg/fsx"
@@ -125,6 +126,8 @@ var registry = map[string]runFunc{
 	"clear":    clear.Run,
 	"tee":      tee.Run,
 	"which":    which.Run,
+	// v0.6: running programs (through fsx.Env.Exec)
+	"xargs": xargs.Run,
 }
 
 // Dispatch routes (name, env) to the matching tool's Run. Unknown names

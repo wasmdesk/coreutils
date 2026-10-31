@@ -79,6 +79,9 @@ func TestXargs(t *testing.T) {
 		{"a b\n", []string{"-n1", "missing"}, "[missing|a]", 127},
 		{"a b\n", []string{"-n1", "broken"}, "[broken|a]", 126},
 		{"a b\n", []string{"-I", "X", "exit255", "X"}, "[exit255|a b]", StatusAborted},
+		{"a b", nil, "[echo|a|b]", 0},                                                               // no final newline
+		{"a  b \t", []string{"-L1"}, "[echo|a|b]", 0},                                               // blanks, then the end
+		{"aaaa bbbb cccc\n", []string{"-s", "21", "exit255"}, "[exit255|aaaa|bbbb]", StatusAborted}, // stop at a size flush
 	} {
 		f, errb, rc := run(c.in, c.args...)
 		if got := strings.Join(f.calls, ""); got != c.want || rc != c.rc {
@@ -117,7 +120,13 @@ func TestXargsErrors(t *testing.T) {
 		{strings.Repeat("y", MaxArg+2), nil, 1, "argument line too long"},
 		{strings.Repeat("y", MaxArg+2), []string{"-0"}, 1, "argument line too long"},
 	} {
-		_, errb, rc := run(c.in, c.args...)
+		f, errb, rc := run(c.in, c.args...)
+		// An error never makes the utility run with no arguments.
+		for _, call := range f.calls {
+			if call == "[echo]" {
+				t.Errorf("xargs %q: ran the utility with no arguments", c.args)
+			}
+		}
 		if rc != c.rc || !strings.Contains(errb, c.msg) {
 			t.Errorf("xargs %q <<< %.20q: rc %d %q, want %d %q", c.args, c.in, rc, errb, c.rc, c.msg)
 		}

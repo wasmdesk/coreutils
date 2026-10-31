@@ -291,7 +291,7 @@ func (x *runner) run() int {
 		}
 		if err != nil {
 			fmt.Fprintf(x.env.Stderr, "xargs: %v\n", err)
-			x.flush(batch)
+			x.flushSome(batch) // what was read before the error still runs, as in GNU xargs
 			return 1
 		}
 		if o.haveEOF && arg == o.eof {
@@ -314,7 +314,7 @@ func (x *runner) run() int {
 		if size+len(arg)+1 > o.size {
 			if len(batch) == 0 || o.exitOnSize {
 				fmt.Fprintln(x.env.Stderr, "xargs: argument line too long")
-				x.flush(batch)
+				x.flushSome(batch)
 				return 1
 			}
 			if stop := x.flush(batch); stop {
@@ -338,6 +338,14 @@ func (x *runner) run() int {
 		x.flush(batch)
 	}
 	return x.status
+}
+
+// flushSome runs the utility with batch if it is not empty (an error is
+// being reported: the utility must not run with no arguments).
+func (x *runner) flushSome(batch []string) {
+	if len(batch) > 0 {
+		x.flush(batch)
+	}
 }
 
 // flush runs the utility with batch; true means stop.

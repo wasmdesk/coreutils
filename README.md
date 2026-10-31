@@ -3,8 +3,8 @@
 # coreutils — wasmdesk
 
 [![License](https://img.shields.io/badge/license-BSD--3--Clause-blue)](LICENSE)
-[![Go](https://img.shields.io/badge/go-1.26.4%2B-00ADD8)](https://go.dev/dl/)
-[![Status](https://img.shields.io/badge/status-v0.5%20%C2%B7%2049%20tools-1a7f37)](#tools)
+[![Go](https://img.shields.io/badge/go-1.27.3%2B-00ADD8)](https://go.dev/dl/)
+[![Status](https://img.shields.io/badge/status-v0.6%20%C2%B7%2050%20tools-1a7f37)](#tools)
 
 **A pure-Go (no cgo) GNU-coreutils-style command suite** that ships in two
 modes: native CLI binaries (`go install ./cmd/<tool>`) and in-process
@@ -68,7 +68,7 @@ base image, where `sh` runs these tools as separate processes.
 | `tail` | `-n [+-]N` (default 10), `-c [+-]N` (`+` counts from the start, origin 1), obsolescent `-N`/`+N`, `-f` (polls each second, prints what is appended, notes a truncated file; ignored on stdin) |
 | `wc`   | `-l` / `-w` / `-c`                  |
 | `grep` | `-i`, `-v`, `-n`, `-E` (regex via go-ruby-regexp — see "Limitations"), `-F`, `-r`/`-R`, `-l`, `-c`, `-o`, `-q`, `-w`, `-H`/`-h`, combined short flags (`-rn`) |
-| `find` | POSIX expressions: `-name`, `-iname`, `-type f/d`, `-size n[cbwkMG]`, `-mtime n`, `-newer FILE`, `-prune`, `-print`, `!`/`-not`, `-a`, `-o`, `( )`, with `+n`/`-n`; GNU `-maxdepth`/`-mindepth`; paths printed from the operand as given (`find .` → `./x`); walk bounded at 256 levels. `-exec` not yet |
+| `find` | POSIX expressions: `-name`, `-iname`, `-type f/d`, `-size n[cbwkMG]`, `-mtime n`, `-newer FILE`, `-prune`, `-print`, `!`/`-not`, `-a`, `-o`, `( )`, with `+n`/`-n`; GNU `-maxdepth`/`-mindepth`; paths printed from the operand as given (`find .` → `./x`); walk bounded at 256 levels; `-exec … ;` (`{}` replaced, also inside an argument) and `-exec … {} +` (batches of ≤ 128 KiB) |
 
 ### Text processing (v0.3 -- 12)
 
@@ -99,7 +99,7 @@ base image, where `sh` runs these tools as separate processes.
 | `true`     | exit 0                                              |
 | `false`    | exit 1                                              |
 | `yes`      | `STRING`, `-n COUNT` (default 1 to avoid wedging)   |
-| `env`      | (no args; prints sorted KEY=VALUE)                  |
+| `env`      | POSIX `[-i] [NAME=VALUE]... [UTILITY [ARG...]]`, GNU `-u NAME`; runs UTILITY (looked up on the `PATH` it sets) with that environment, 127/126 if not found / cannot run; without one, prints sorted `KEY=VALUE` |
 | `expr`     | `+ - * / %`, `= != < <= > >=`, `STR : REGEX`        |
 
 ### Crypto / encoding (v0.3 -- 5)
@@ -126,6 +126,19 @@ users: these tools answer with what is true there.
 | `clear`    | `-x` keeps the scrollback                                        |
 | `tee`      | `-a`, `-i` (accepted); stdout and FILEs are written as the input arrives (`tee log` can be watched live); on an `fsx.FS` without the optional `fsx.Opener`, FILEs are written when the input ends |
 | `which`    | `-a`; tries `<dir>/<name>` then `<dir>/<name>.wasm` on `$PATH`   |
+
+### Running programs (v0.6 -- 1, and `env`, `find -exec`)
+
+Programs are started through `fsx.Env.Exec`: on `GOOS=wasip1` through
+WASIX ([`go-wasmcontainers/shell/wasix/exec`](https://github.com/go-wasmcontainers/shell/tree/main/wasix/exec):
+`proc_spawn3`, `proc_join`, `fd_pipe`), natively through `os/exec`
+(`pkg/procx.Default`). Where `Exec` is nil (the in-browser builtins, unless
+the host provides one) these tools report that programs cannot run here
+(status 126).
+
+| tool    | flags supported |
+| ------- | --------------- |
+| `xargs` | POSIX `-0 -E -I -L -n -r -s -t -x` (no `-p`: no terminal to ask); quotes and backslashes; `echo` by default; 123 when an invocation failed, 124 (and stop) at a 255, 126/127; the utility gets no stdin; input is read as it comes; checked against the system `xargs` |
 
 ## Architecture
 
@@ -161,7 +174,7 @@ in-browser builtin automatically, with no terminal-side code change. See
   with the utf8 SIMD work.
 - `tr` is byte-oriented, in the POSIX locale (classes are ASCII; multi-byte
   runes are bytes). A reversed range is an error, as in GNU tr.
-- `env` is print-only -- no `KEY=VAL CMD` execution (no subprocess support).
+- `env`, `xargs` and `find -exec` run programs only where `fsx.Env.Exec` is set (native, `wasip1`).
 - `expr` accepts only the binary `A OP B` form; no parentheses.
 - `printf`: widths and precisions are capped at 65536; length modifiers (`%ld`) are accepted and ignored; an invalid conversion stops the output with status 1 (as GNU and BSD do).
 - `sleep` uses a swappable function seam (`sleep.SleepFn`); the in-browser
