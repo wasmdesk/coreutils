@@ -2,3 +2,5 @@ github.com/go-regexp/engine v0.3.2 h1:zublnb1Vf5Cclh59+cp35htv2aATddBMNp5VwMAeZc
 github.com/go-regexp/engine v0.3.2/go.mod h1:fWnPvSuE4HIVpBQIHMiaPMEE7InDc00KeoPr/QNFGwA=
 github.com/go-ruby-regexp/regexp v0.1.1 h1:gqueGLmsUVVleZMzEGKax2YfpJz+aLQqdbsHp+OB3CA=
 github.com/go-ruby-regexp/regexp v0.1.1/go.mod h1:RhMJEXTJUHXcrqbnS5cVSoEfLC1SBm4G+dMkhVB96RM=
+github.com/go-wasmcontainers/shell/wasix v0.1.0 h1:L5iZ6xvHoTUng7oN+zxWZpP28M5FKBvk9EhWi4FFDfc=
+github.com/go-wasmcontainers/shell/wasix v0.1.0/go.mod h1:KX8jCNqsTJpYghHCNcAbAz9KuX5Es76XZ9Daa6HYtfQ=
