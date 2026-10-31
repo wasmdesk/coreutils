@@ -29,9 +29,12 @@ var Now = time.Now
 // -size n[cbwkMG], -mtime n, -newer file, -print, -prune, -true,
 // -false; operators ( ), ! / -not, -a / -and (or juxtaposition), -o / -or.
 // Numbers are n, +n (more than), -n (less than). GNU's global options
-// -maxdepth and -mindepth are accepted anywhere in the expression. With no
-// -print in the expression, a path is printed when the expression is
-// true. -exec is not supported yet.
+// -maxdepth and -mindepth are accepted anywhere in the expression.
+// -exec utility [argument...] ; runs utility for each path ({} in an
+// argument replaced by it; true if it exits 0); -exec utility
+// [argument...] {} + runs it with as many paths as fit (always true; a
+// failure makes find's status 1). With no -print or -exec in the
+// expression, a path is printed when the expression is true.
 func Run(env *fsx.Env) int {
 	args := env.Args
 	if len(args) > 0 {
@@ -58,7 +61,66 @@ func Run(env *fsx.Env) int {
 	for _, r := range roots {
 		w.walk(r, fsx.Resolve(env.Cwd, r), 0)
 	}
+	for _, b := range p.batches {
+		b.flush(w)
+	}
 	return w.rc
+}
+
+// MaxExecSize bounds the arguments of one -exec ... {} + command line, in
+// bytes, each with its NUL (like xargs' default).
+const MaxExecSize = 128 << 10
+
+// execOne is -exec ... ;: one run per path.
+type execOne struct{ argv []string }
+
+func (x execOne) eval(w *walker, e *entry) bool {
+	argv := make([]string, len(x.argv))
+	for i, a := range x.argv {
+		argv[i] = strings.ReplaceAll(a, "{}", e.shown) // GNU: also inside an argument
+	}
+	code := w.run(argv)
+	return code == 0
+}
+
+// execBatch is -exec ... {} +: paths gathered, run in batches.
+type execBatch struct {
+	argv  []string // without the {}
+	paths []string
+	size  int
+}
+
+func (x *execBatch) eval(w *walker, e *entry) bool {
+	n := len(e.shown) + 1
+	if len(x.paths) > 0 && x.size+n > MaxExecSize {
+		x.flush(w)
+	}
+	x.paths = append(x.paths, e.shown)
+	x.size += n
+	return true
+}
+
+func (x *execBatch) flush(w *walker) {
+	if len(x.paths) == 0 {
+		return
+	}
+	argv := append(append([]string(nil), x.argv...), x.paths...)
+	x.paths, x.size = nil, 0
+	if w.run(argv) != 0 {
+		w.rc = exit.Fail // POSIX: a failing + command makes find's status non-zero
+	}
+}
+
+// run runs argv with find's stdio; 126/127 make find's status 1.
+func (w *walker) run(argv []string) int {
+	code := w.env.RunStatus("find", fsx.Command{
+		Name: argv[0], Args: argv, Dir: w.env.Cwd,
+		Stdin: w.env.Stdin, Stdout: w.env.Stdout, Stderr: w.env.Stderr,
+	})
+	if code == 126 || code == 127 {
+		w.rc = exit.Fail
+	}
+	return code
 }
 
 func isExprStart(a string) bool {
@@ -150,8 +212,9 @@ func (x newer) eval(_ *walker, e *entry) bool { return e.info.ModTime.After(x.t)
 type parser struct {
 	env                *fsx.Env
 	toks               []string
-	hasPrint           bool
+	hasPrint           bool // an action (-print, -exec): no implicit -print
 	minDepth, maxDepth int
+	batches            []*execBatch
 }
 
 func (p *parser) peek() string {
@@ -246,6 +309,32 @@ func (p *parser) primary() (expr, error) {
 	case "-print":
 		p.hasPrint = true
 		return printer{}, nil
+	case "-exec":
+		var argv []string
+		for {
+			if len(p.toks) == 0 {
+				return nil, errors.New("missing argument to `-exec'")
+			}
+			a := p.next()
+			if a == ";" {
+				break
+			}
+			if a == "+" && len(argv) > 0 && argv[len(argv)-1] == "{}" {
+				if len(argv) == 1 {
+					return nil, errors.New("-exec: no utility before {} +")
+				}
+				b := &execBatch{argv: argv[:len(argv)-1]}
+				p.batches = append(p.batches, b)
+				p.hasPrint = true
+				return b, nil
+			}
+			argv = append(argv, a)
+		}
+		if len(argv) == 0 {
+			return nil, errors.New("-exec: no utility")
+		}
+		p.hasPrint = true
+		return execOne{argv}, nil
 	case "-prune":
 		return pruner{}, nil
 	case "-true":

@@ -94,7 +94,11 @@ func TestFindUsage(t *testing.T) {
 		msg  string
 	}{
 		{[]string{".", "-bogus"}, "unknown predicate `-bogus'"},
-		{[]string{".", "-exec", "rm", ";"}, "unknown predicate `-exec'"},
+		{[]string{".", "-exec"}, "missing argument to `-exec'"},
+		{[]string{".", "-exec", "rm", "{}"}, "missing argument to `-exec'"},
+		{[]string{".", "-exec", ";"}, "-exec: no utility"},
+		{[]string{".", "-exec", "{}", "+"}, "no utility before {} +"},
+		{[]string{".", "-ok", "rm", ";"}, "unknown predicate `-ok'"},
 		{[]string{".", "-type", "x"}, "unknown type"},
 		{[]string{".", "-type"}, "missing argument"},
 		{[]string{".", "-size", "x"}, "-size: invalid number"},

@@ -26,6 +26,7 @@ package fsx
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"sort"
 	"strings"
@@ -102,6 +103,59 @@ type Env struct {
 	Stderr io.Writer
 	Cwd    string
 	FS     FS
+	// Exec runs other programs (env CMD, xargs, find -exec); nil where
+	// programs cannot be run (the tools then fail with status 126).
+	// pkg/procx.Default is the one for the native and wasip1 builds.
+	Exec Execer
+}
+
+// Command is a program a tool runs.
+type Command struct {
+	// Name is the program: a name looked up on the PATH of Env (or of
+	// the caller's environment when Env is nil), or a path.
+	Name string
+	// Args is argv, Args[0] included.
+	Args []string
+	// Env is the environment; nil means the caller's.
+	Env []string
+	// Dir is the working directory.
+	Dir            string
+	Stdin          io.Reader
+	Stdout, Stderr io.Writer
+}
+
+// Execer runs a Command to its end and returns its exit status. An error
+// means it did not run: ErrNoProgram when it was not found (POSIX: 127),
+// anything else when it could not be started (126).
+type Execer func(c Command) (int, error)
+
+// ErrNoProgram is the error of an Execer for a program it cannot find.
+var ErrNoProgram = errors.New("no such program")
+
+// ErrCannotRun is the error when Env.Exec is nil.
+var ErrCannotRun = errors.New("cannot run programs here")
+
+// Run runs c through e.Exec; with no Exec it returns ErrCannotRun.
+func (e *Env) Run(c Command) (int, error) {
+	if e.Exec == nil {
+		return 0, ErrCannotRun
+	}
+	return e.Exec(c)
+}
+
+// RunStatus is Run as a tool reports it: a message on Stderr and POSIX's
+// 127 (not found) or 126 (cannot run) when the program did not run.
+func (e *Env) RunStatus(tool string, c Command) int {
+	code, err := e.Run(c)
+	switch {
+	case err == nil:
+		return code
+	case errors.Is(err, ErrNoProgram):
+		fmt.Fprintf(e.Stderr, "%s: %s: not found\n", tool, c.Name)
+		return 127
+	}
+	fmt.Fprintf(e.Stderr, "%s: %s: %v\n", tool, c.Name, err)
+	return 126
 }
 
 // StdinOperand is the operand that names standard input, as in POSIX

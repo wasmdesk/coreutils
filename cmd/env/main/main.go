@@ -10,6 +10,7 @@ import (
 
 	envcmd "github.com/wasmdesk/coreutils/cmd/env"
 	"github.com/wasmdesk/coreutils/pkg/fsx"
+	"github.com/wasmdesk/coreutils/pkg/procx"
 )
 
 func main() {
@@ -24,5 +25,6 @@ func main() {
 		Stderr: os.Stderr,
 		Cwd:    cwd,
 		FS:     fsx.NewOSFS(),
+		Exec:   procx.Default(),
 	}))
 }
